@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CC Prompter — Click → Claude Code → Done</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0b;
+    --bg-card: #131316;
+    --bg-card-hover: #1a1a1f;
+    --border: #2a2a30;
+    --text: #e8e8ec;
+    --text-sec: #8b8b96;
+    --text-dim: #55555f;
+    --accent: #6C7BFF;
+    --accent-light: #8B97FF;
+    --accent-glow: rgba(108, 123, 255, 0.15);
+    --green: #34D399;
+    --orange: #FBBF24;
+    --red: #F87171;
+    --mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 24px;
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    font-size: 13px;
+    color: var(--text-sec);
+    margin-bottom: 32px;
+    position: relative;
+  }
+
+  .badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  h1 {
+    font-size: clamp(40px, 7vw, 72px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 24px;
+  }
+
+  h1 .highlight {
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: clamp(16px, 2.5vw, 20px);
+    color: var(--text-sec);
+    max-width: 640px;
+    margin-bottom: 40px;
+    line-height: 1.7;
+  }
+
+  .subtitle code {
+    font-family: var(--mono);
+    font-size: 0.9em;
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--accent-light);
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 24px var(--accent-glow);
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-light);
+    box-shadow: 0 0 40px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--text-dim);
+  }
+
+  /* ── Install ── */
+  .install-section {
+    padding: 80px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .install-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 40px;
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .install-box h3 {
+    font-size: 14px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  .code-block {
+    background: #0d0d0f;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.8;
+    overflow-x: auto;
+    color: var(--text-sec);
+  }
+
+  .code-block .kw { color: #C792EA; }
+  .code-block .fn { color: #82AAFF; }
+  .code-block .str { color: #C3E88D; }
+  .code-block .cmt { color: var(--text-dim); }
+  .code-block .acc { color: var(--accent-light); }
+
+  /* ── Flow ── */
+  .flow-section {
+    padding: 80px 24px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .flow-section h2 {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 48px;
+    letter-spacing: -0.02em;
+  }
+
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 24px 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.2s;
+  }
+
+  .flow-step:hover {
+    border-color: var(--accent);
+    background: var(--bg-card-hover);
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    border-radius: 8px;
+  }
+
+  .step-content h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .step-content p {
+    font-size: 14px;
+    color: var(--text-sec);
+    line-height: 1.6;
+  }
+
+  .step-content kbd {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    background: #0d0d0f;
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: var(--accent-light);
+  }
+
+  /* ── Features ── */
+  .features-section {
+    padding: 80px 24px;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+
+  .features-section h2 {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 48px;
+    letter-spacing: -0.02em;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  .feature-card {
+    padding: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.2s;
+  }
+
+  .feature-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .feature-icon {
+    font-size: 28px;
+    margin-bottom: 14px;
+  }
+
+  .feature-card h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: var(--text-sec);
+    line-height: 1.6;
+  }
+
+  /* ── Architecture ── */
+  .arch-section {
+    padding: 80px 24px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  .arch-section h2 {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 48px;
+  }
+
+  .arch-diagram {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text-sec);
+  }
+
+  .arch-diagram .a { color: var(--accent-light); }
+  .arch-diagram .g { color: var(--green); }
+  .arch-diagram .o { color: var(--orange); }
+  .arch-diagram .r { color: var(--red); }
+  .arch-diagram .d { color: var(--text-dim); }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 48px 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  footer a {
+    color: var(--accent-light);
+    text-decoration: none;
+  }
+
+  @media (max-width: 640px) {
+    .flow-step { flex-direction: column; gap: 12px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .install-box { padding: 24px; }
+    .arch-diagram { font-size: 11px; padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ Hero ═══ -->
+<section class="hero">
+  <div class="badge">
+    <span class="dot"></span>
+    Vite Plugin · Open Source
+  </div>
+  <h1>
+    <span class="highlight">Click</span> Element<br/>
+    → Claude <span class="highlight">Code</span> → Done
+  </h1>
+  <p class="subtitle">
+    在 Vite 项目中 Shift+Alt 点击任意元素，<br/>
+    弹出 Claude Code 面板，描述你想改什么，代码自动修改、页面自动刷新。<br/>
+    只需 <code>ccPromptPlugin()</code> 一行配置。
+  </p>
+  <div class="cta-row">
+    <a class="btn btn-primary" href="#install">Get Started →</a>
+    <a class="btn btn-secondary" href="https://github.com" target="_blank">GitHub</a>
+  </div>
+</section>
+
+<!-- ═══ Install ═══ -->
+<section class="install-section" id="install">
+  <div class="install-box">
+    <h3>1. Install</h3>
+    <div class="code-block">
+<span class="fn">npm</span> install cc-prompter
+    </div>
+
+    <h3 style="margin-top:28px;">2. Configure</h3>
+    <div class="code-block">
+<span class="cmt">// vite.config.ts</span>
+<span class="kw">import</span> { <span class="fn">ccPromptPlugin</span> } <span class="kw">from</span> <span class="str">'cc-prompter'</span>;
+
+<span class="kw">export default</span> <span class="fn">defineConfig</span>({
+  <span class="acc">plugins</span>: [
+    <span class="fn">ccPromptPlugin</span>(),   <span class="cmt">// ← 就这一行</span>
+    <span class="fn">react</span>(),
+  ],
+});
+    </div>
+
+    <h3 style="margin-top:28px;">3. Done</h3>
+    <div class="code-block">
+<span class="fn">npm</span> run dev
+<span class="cmt"># Shift+Alt 点击页面元素 → 面板弹出 → 输入修改指令 → 自动完成</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Flow ═══ -->
+<section class="flow-section">
+  <h2>How It Works</h2>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Shift + Alt 悬停元素</h4>
+        <p>code-inspector 在编译时为每个 DOM 元素注入源码定位信息。按住 <kbd>Shift</kbd> + <kbd>Alt</kbd> 悬停，自动读取 <code>data-insp-path</code> 属性，获取文件路径、行列号。</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>点击 → 面板弹出</h4>
+        <p>点击后弹出一个可拖拽、可缩放的浮动 iframe 面板。源码定位信息自动附加到当前活跃 session，输入框自动聚焦。</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>描述修改 → Claude 执行</h4>
+        <p>输入「把按钮改成圆角蓝色」，Claude Code 通过 PTY 直接操作你的代码文件。工具调用（Read/Edit/Write）按序实时展示。</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h4>HMR 自动刷新</h4>
+        <p>代码修改保存后，Vite HMR 自动热更新页面，无需手动刷新。你可以继续下一次操作。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Features ═══ -->
+<section class="features-section">
+  <h2>Features</h2>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <h4>元素级源码定位</h4>
+      <p>内置 code-inspector-plugin，编译时打标、运行时交互。点击即获取精确的文件路径、行列号和 DOM 元素信息。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💬</div>
+      <h4>多 Session 并行</h4>
+      <p>多个独立 Claude 会话同时运行，各有自己的上下文和源码定位。Tab 切换互不干扰，支持同时在不同 session 中操作。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h4>实时流式渲染</h4>
+      <p>Markdown 实时渲染（标题、代码块、列表、加粗/斜体），工具调用按序展示，带进度指示和打字动画光标。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⏹</div>
+      <h4>随时中断</h4>
+      <p>生成过程中点击 Stop 按钮，发送 Escape 信号中断 Claude。会话不会销毁，可以继续对话。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🖼</div>
+      <h4>灵活面板</h4>
+      <p>浮动 iframe 面板，支持拖拽移动、边缘和四角缩放。<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> 随时召回，<kbd>Esc</kbd> 隐藏。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔌</div>
+      <h4>零配置集成</h4>
+      <p>一个插件包含 code-inspector + PTY sidecar + 脚本注入。端口自动选择，dev-only 注入，生产构建零侵入。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Architecture ═══ -->
+<section class="arch-section">
+  <h2>Architecture</h2>
+  <div class="arch-diagram"><span class="d">┌──────────────────────────────────────────────────────┐</span>
+<span class="d">│</span>                  <span class="a">Vite Dev Server</span>                      <span class="d">│</span>
+<span class="d">│</span>                                                       <span class="d">│</span>
+<span class="d">│</span>  <span class="a">React App</span>   <span class="o">inject.js</span>   <span class="g">panel.html</span>               <span class="d">│</span>
+<span class="d">│</span>  (main app) ◄─► (events) ──► (iframe)               <span class="d">│</span>
+<span class="d">│</span>                  postMessage    SSE stream            <span class="d">│</span>
+<span class="d">└──────────────────────┬─────────────────┬───────────────┘</span>
+                       <span class="d">│</span>                 <span class="d">│</span>
+                  <span class="d">┌──▼─────────────────▼──────────────────┐</span>
+                  <span class="d">│</span>        <span class="a">Sidecar</span> (<span class="a">Express :3456</span>)         <span class="d">│</span>
+                  <span class="d">│</span>                                        <span class="d">│</span>
+                  <span class="d">│</span>   <span class="g">Session 1</span>    <span class="g">Session 2</span>    <span class="g">Session N</span> <span class="d">│</span>
+                  <span class="d">│</span>   <span class="r">Claude PTY</span>   <span class="r">Claude PTY</span>   <span class="r">Claude PTY</span> <span class="d">│</span>
+                  <span class="d">│</span>   (独立进程)   (独立进程)   (独立进程)     <span class="d">│</span>
+                  <span class="d">└────────────────────────────────────────┘</span></div>
+</section>
+
+<!-- ═══ Footer ═══ -->
+<footer>
+  <p>CC Prompter · MIT License · Built with ❤️ for <a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank">Claude Code</a></p>
+</footer>
+
+</body>
+</html>

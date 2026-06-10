@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CC Prompter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --border: #e0e0e0; --border-lt: #ebebeb; --border-active: #b0b0b0;
+    --text: #333; --text-sec: #888; --text-dim: #bbb;
+    --bg: #fff; --bg-code: #f7f7f7; --bg-hover: #f5f5f5;
+    --accent: #1677ff; --success: #52c41a; --err: #ff4d4f;
+    --r: 6px;
+    --mono: "SF Mono","Fira Code","Menlo","Consolas",monospace;
+    --sans: -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","PingFang SC",sans-serif;
+  }
+  body { font-family: var(--sans); font-size: 13px; color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-lt); flex-shrink: 0; }
+  .header-title { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .header-title svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .session-tabs { display: flex; gap: 4px; padding: 6px 12px; border-bottom: 1px solid var(--border-lt); flex-shrink: 0; overflow-x: auto; }
+  .session-tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid var(--border-lt); background: var(--bg); color: var(--text-sec); white-space: nowrap; transition: all .15s; }
+  .tab:hover { border-color: var(--border-active); color: var(--text); }
+  .tab.active { border-color: var(--accent); color: var(--accent); font-weight: 500; }
+  .tab.new { border-style: dashed; color: var(--text-dim); }
+  .tab .tab-close { margin-left: 6px; font-size: 10px; opacity: 0.5; }
+  .tab .tab-close:hover { opacity: 1; color: var(--err); }
+  .tab .tab-status { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+  .tab .tab-status.ready { background: var(--success); }
+  .tab .tab-status.busy { background: var(--accent); animation: pulse 1s infinite; }
+  .tab .tab-status.exited { background: var(--text-dim); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .messages { flex: 1; overflow-y: auto; padding: 8px 12px; }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Message segments ── */
+  .seg { margin-bottom: 8px; }
+  .seg-user { }
+  .seg-user .seg-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); margin-bottom: 2px; }
+  .seg-user .seg-body { font-size: 12px; line-height: 1.6; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+
+  .seg-asst { }
+  .seg-asst .seg-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--success); margin-bottom: 4px; }
+  .seg-asst .seg-body { font-size: 12px; line-height: 1.65; color: var(--text); }
+  .seg-asst .seg-body .cursor { display: inline-block; width: 2px; height: 14px; background: var(--accent); vertical-align: text-bottom; margin-left: 1px; animation: blink 0.8s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .seg-tool { padding: 4px 8px; background: var(--bg-code); border-radius: 4px; border: 1px solid var(--border-lt); font-size: 11px; font-family: var(--mono); color: var(--text-sec); margin: 2px 0 6px 0; word-break: break-all; overflow-wrap: break-word; }
+  .seg-tool .tool-name { font-weight: 600; color: var(--text); }
+  .seg-tool .tool-result { color: var(--text-dim); font-size: 10px; margin-top: 2px; word-break: break-all; overflow-wrap: break-word; }
+
+  .seg-sys { }
+  .seg-sys .seg-body { font-size: 10px; color: var(--text-dim); font-style: italic; text-align: center; padding: 4px 0; }
+
+  /* ── Markdown rendered styles ── */
+  .seg-body h1, .seg-body h2, .seg-body h3, .seg-body h4 { font-weight: 600; margin: 0.8em 0 0.4em; line-height: 1.35; }
+  .seg-body h1 { font-size: 1.3em; }
+  .seg-body h2 { font-size: 1.15em; }
+  .seg-body h3 { font-size: 1.05em; }
+  .seg-body h4 { font-size: 1em; }
+  .seg-body h1:first-child, .seg-body h2:first-child, .seg-body h3:first-child { margin-top: 0; }
+  .seg-body p { margin: 0.4em 0; }
+  .seg-body ul, .seg-body ol { margin: 0.3em 0; padding-left: 1.8em; }
+  .seg-body li { margin: 0.15em 0; }
+  .seg-body code { font-family: var(--mono); font-size: 0.9em; background: var(--bg-code); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border-lt); }
+  .seg-body pre { background: var(--bg-code); border: 1px solid var(--border-lt); border-radius: var(--r); padding: 8px 10px; margin: 0.4em 0; overflow-x: auto; }
+  .seg-body pre code { background: none; padding: 0; border: none; font-size: 0.85em; line-height: 1.5; }
+  .seg-body blockquote { border-left: 3px solid var(--accent); padding: 2px 10px; margin: 0.4em 0; color: var(--text-sec); }
+  .seg-body strong { font-weight: 600; }
+  .seg-body em { font-style: italic; }
+  .seg-body hr { border: none; border-top: 1px solid var(--border-lt); margin: 0.6em 0; }
+  .seg-body a { color: var(--accent); }
+
+  .msg-thinking { font-size: 12px; color: var(--text-dim); padding: 4px 0 8px 0; display: flex; align-items: center; gap: 8px; }
+  .msg-thinking .dots span { display: inline-block; width: 4px; height: 4px; background: var(--text-dim); border-radius: 50%; animation: dot-pulse 1.4s ease-in-out infinite; }
+  .msg-thinking .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .msg-thinking .dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot-pulse { 0%,80%,100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
+
+  .source-bar { padding: 6px 12px; border-bottom: 1px solid var(--border-lt); display: none; flex-shrink: 0; }
+  .source-bar.visible { display: flex; align-items: center; gap: 6px; }
+  .source-label { font-size: 10px; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.5px; }
+  .source-path { font-size: 12px; color: var(--accent); font-family: var(--mono); }
+  .source-elem { font-size: 10px; color: var(--text-dim); font-family: var(--mono); margin-left: auto; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .source-close { font-size: 14px; color: var(--text-dim); cursor: pointer; margin-left: 4px; }
+  .source-close:hover { color: var(--err); }
+  .input-area { padding: 8px 12px; border-top: 1px solid var(--border-lt); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+  .input-row { display: flex; gap: 6px; }
+  .input-row textarea { flex: 1; min-height: 38px; max-height: 100px; padding: 7px 10px; font-size: 13px; line-height: 1.5; font-family: var(--sans); border: 1px solid var(--border); border-radius: var(--r); color: var(--text); background: var(--bg); outline: none; resize: vertical; transition: border-color .15s; }
+  .input-row textarea:focus { border-color: var(--accent); }
+  .input-row textarea::placeholder { color: var(--text-dim); }
+  .input-row textarea:disabled { background: var(--bg-code); color: var(--text-sec); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 12px; border-radius: 5px; font-size: 12px; line-height: 20px; cursor: pointer; outline: none; border: 1px solid var(--border); background: var(--bg); color: var(--text-sec); transition: all .15s; }
+  .btn:hover { border-color: var(--border-active); color: var(--text); }
+  .btn.primary { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 500; }
+  .btn.primary:hover { background: #4096ff; }
+  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .input-actions { display: flex; justify-content: space-between; align-items: center; }
+  .input-hint { font-size: 10px; color: var(--text-dim); }
+  .input-status { font-size: 11px; }
+  .input-status.running { color: var(--accent); }
+  .input-status.done { color: var(--success); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">
+    <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM12 6a6 6 0 1 1 0 12 6 6 0 0 1 0-12ZM12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>
+    CC Sessions
+  </div>
+</div>
+
+<div class="session-tabs" id="sessionTabs">
+  <div class="tab new" id="tabNew" title="New Session">+ New</div>
+</div>
+
+<div class="source-bar" id="sourceBar">
+  <span class="source-label">SRC</span>
+  <span class="source-path" id="sourcePath"></span>
+  <span class="source-elem" id="sourceElem"></span>
+  <span class="source-close" id="sourceClose" title="Clear source">&times;</span>
+</div>
+
+<div class="messages" id="messages"></div>
+
+<div class="input-area" id="inputArea">
+  <div class="input-row">
+    <textarea id="input" placeholder="Describe the change, Enter to send..." rows="1"></textarea>
+  </div>
+  <div class="input-actions">
+    <span class="input-hint" id="inputHint">Shift+Enter newline</span>
+    <span class="input-status" id="inputStatus"></span>
+    <div style="display:flex;gap:6px;">
+      <button class="btn" id="btnCompact" title="/compact">Compact</button>
+      <button class="btn" id="btnNew" title="/new">New</button>
+      <button class="btn" id="btnStop" title="Stop generation" style="display:none;">
+        <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        Stop
+      </button>
+      <button class="btn primary" id="btnSend">
+        <svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        Send
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var API = window.location.origin + '/api';
+  // Each session: { info, segments: [], sourceInfo: null, streaming: false }
+  var sessions = {};
+  var activeId = null;
+
+  // ── Segment-based rendering ──
+  // Each session has .segments[] — a flat list of rendered blocks.
+  // segment kinds: 'user' | 'asst' | 'tool' | 'sys'
+  // 'asst' segments have `finalized: bool` for streaming cursor.
+
+  var $tabs = document.getElementById('sessionTabs');
+  var $tabNew = document.getElementById('tabNew');
+  var $sourceBar = document.getElementById('sourceBar');
+  var $sourcePath = document.getElementById('sourcePath');
+  var $sourceElem = document.getElementById('sourceElem');
+  var $sourceClose = document.getElementById('sourceClose');
+  var $messages = document.getElementById('messages');
+  var $input = document.getElementById('input');
+  var $inputStatus = document.getElementById('inputStatus');
+  var $btnSend = document.getElementById('btnSend');
+  var $btnCompact = document.getElementById('btnCompact');
+  var $btnNew = document.getElementById('btnNew');
+  var $btnStop = document.getElementById('btnStop');
+
+  // ── Simple Markdown Renderer ──
+
+  function renderMarkdown(text) {
+    if (!text) return '';
+    var lines = text.replace(/\r\n/g, '\n').split('\n');
+    var out = '';
+    var inCodeBlock = false;
+    var codeLang = '';
+    var codeBuf = '';
+    var inList = false;
+
+    function flushList() {
+      if (!inList) return;
+      out += '</' + inList + '>';
+      inList = false;
+    }
+
+    function flushCode() {
+      if (!inCodeBlock) return;
+      var langAttr = codeLang ? ' class="lang-' + escAttr(codeLang) + '"' : '';
+      out += '<pre><code' + langAttr + '>' + escHtml(codeBuf.replace(/\n$/, '')) + '</code></pre>';
+      inCodeBlock = false;
+      codeBuf = '';
+      codeLang = '';
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var raw = lines[i];
+      var trimmed = raw.trim();
+
+      if (trimmed.indexOf('```') === 0) {
+        if (inCodeBlock) {
+          flushCode();
+        } else {
+          flushList();
+          inCodeBlock = true;
+          codeLang = trimmed.slice(3).trim();
+          codeBuf = '';
+        }
+        continue;
+      }
+
+      if (inCodeBlock) {
+        codeBuf += raw + '\n';
+        continue;
+      }
+
+      if (!trimmed) {
+        flushList();
+        continue;
+      }
+
+      if (/^#{1,4}\s/.test(trimmed)) {
+        flushList();
+        var m = trimmed.match(/^(#{1,4})\s+(.+)/);
+        var lvl = m[1].length;
+        out += '<h' + lvl + '>' + inlineMd(m[2]) + '</h' + lvl + '>';
+        continue;
+      }
+
+      if (/^[-*_]{3,}\s*$/.test(trimmed)) {
+        flushList();
+        out += '<hr>';
+        continue;
+      }
+
+      if (/^>\s?/.test(trimmed)) {
+        flushList();
+        out += '<blockquote><p>' + inlineMd(trimmed.replace(/^>\s?/, '')) + '</p></blockquote>';
+        continue;
+      }
+
+      if (/^[-*]\s+/.test(trimmed)) {
+        if (inList !== 'ul') { flushList(); inList = 'ul'; out += '<ul>'; }
+        out += '<li>' + inlineMd(trimmed.replace(/^[-*]\s+/, '')) + '</li>';
+        continue;
+      }
+
+      if (/^\d+\.\s+/.test(trimmed)) {
+        if (inList !== 'ol') { flushList(); inList = 'ol'; out += '<ol>'; }
+        out += '<li>' + inlineMd(trimmed.replace(/^\d+\.\s+/, '')) + '</li>';
+        continue;
+      }
+
+      flushList();
+      out += '<p>' + inlineMd(trimmed) + '</p>';
+    }
+
+    flushList();
+    flushCode();
+    return out;
+  }
+
+  function inlineMd(s) {
+    return s
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.+?)__/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/_(.+?)_/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function escAttr(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Session management ──
+
+  function api(method, path, body) {
+    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(API + path, opts).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function createSession() {
+    return api('POST', '/sessions', {}).then(function(info) {
+      sessions[info.id] = { info: info, segments: [], sourceInfo: null, streaming: false };
+      renderTabs();
+      selectSession(info.id);
+      return info;
+    });
+  }
+
+  function renderTabs() {
+    var old = $tabs.querySelectorAll('.tab:not(.new)');
+    for (var i = 0; i < old.length; i++) old[i].remove();
+    var ids = Object.keys(sessions);
+    for (var j = 0; j < ids.length; j++) {
+      var id = ids[j];
+      var s = sessions[id];
+      var tab = document.createElement('div');
+      tab.className = 'tab' + (id === activeId ? ' active' : '');
+      tab.dataset.id = id;
+      // Use frontend streaming flag for more accurate status
+      var statusClass = s.streaming ? 'busy' : (s.info.status || 'ready');
+      tab.innerHTML = '<span class="tab-status ' + statusClass + '"></span>'
+        + escHtml(s.info.title || 'Session')
+        + (id === activeId ? '<span class="tab-close" data-close="' + id + '">x</span>' : '');
+      $tabs.insertBefore(tab, $tabNew);
+    }
+  }
+
+  function selectSession(id) {
+    activeId = id;
+    renderTabs();
+    renderAllSegments();
+    updateSourceBarDisplay();
+    updateInputState();
+  }
+
+  // ── Source bar per-session display ──
+
+  function updateSourceBarDisplay() {
+    var s = sessions[activeId];
+    if (s && s.sourceInfo && s.sourceInfo.path) {
+      $sourceBar.className = 'source-bar visible';
+      var idx = s.sourceInfo.path.lastIndexOf('/src/');
+      var shortPath = idx >= 0 ? s.sourceInfo.path.substring(idx + 1) : s.sourceInfo.path.split('/').slice(-3).join('/');
+      $sourcePath.textContent = shortPath + ':' + s.sourceInfo.line + ':' + s.sourceInfo.column;
+      $sourceElem.textContent = s.sourceInfo.elementInfo || '';
+    } else {
+      $sourceBar.className = 'source-bar';
+      $sourcePath.textContent = '';
+      $sourceElem.textContent = '';
+    }
+  }
+
+  // ── Segment rendering ──
+
+  function renderAllSegments() {
+    $messages.innerHTML = '';
+    var s = sessions[activeId];
+    if (!s) return;
+    for (var i = 0; i < s.segments.length; i++) {
+      s.segments[i]._domOwn = false; // reset for re-render
+      appendSegmentDom(s.segments[i]);
+    }
+    scrollToBottom();
+  }
+
+  function appendSegmentDom(seg) {
+    var last = $messages.lastElementChild;
+
+    if (seg.kind === 'asst' && last && last.dataset && last.dataset.segKind === 'asst' && !seg._domOwn) {
+      var body = last.querySelector('.seg-body');
+      if (body) {
+        body.innerHTML = renderMarkdown(seg.content || '');
+        if (!seg.finalized) {
+          var cursor = document.createElement('span');
+          cursor.className = 'cursor';
+          body.appendChild(cursor);
+        }
+      }
+      seg._domOwn = true;
+      scrollToBottom();
+      return;
+    }
+
+    var div = document.createElement('div');
+    div.className = 'seg seg-' + seg.kind;
+    div.dataset.segKind = seg.kind;
+
+    switch (seg.kind) {
+      case 'user':
+        div.innerHTML = '<div class="seg-label">User</div><div class="seg-body">' + escHtml(seg.content || '') + '</div>';
+        break;
+      case 'asst':
+        var bodyHtml = renderMarkdown(seg.content || '');
+        if (!seg.finalized) {
+          bodyHtml += '<span class="cursor"></span>';
+        }
+        div.innerHTML = '<div class="seg-label">Claude</div><div class="seg-body">' + bodyHtml + '</div>';
+        break;
+      case 'tool':
+        div.className = 'seg seg-tool';
+        var inputStr = typeof seg.input === 'string' ? seg.input : JSON.stringify(seg.input || {}).slice(0, 200);
+        div.innerHTML = '<span class="tool-name">' + escHtml(seg.name) + '</span> ' + escHtml(inputStr);
+        if (seg.result) {
+          div.innerHTML += '<div class="tool-result">' + escHtml(String(seg.result).slice(0, 300)) + '</div>';
+        }
+        break;
+      case 'sys':
+        div.innerHTML = '<div class="seg-body">' + escHtml(seg.content || '') + '</div>';
+        break;
+    }
+
+    seg._domOwn = true;
+    $messages.appendChild(div);
+    scrollToBottom();
+  }
+
+  function getLastAsstSeg(s) {
+    for (var i = s.segments.length - 1; i >= 0; i--) {
+      if (s.segments[i].kind === 'asst') return s.segments[i];
+    }
+    return null;
+  }
+
+  function scrollToBottom() {
+    $messages.scrollTop = $messages.scrollHeight;
+  }
+
+  function updateInputState() {
+    var s = sessions[activeId];
+    var thisBusy = s && s.streaming;
+    var disabled = !s || s.info.status === 'exited' || thisBusy;
+    $input.disabled = disabled;
+    $btnSend.disabled = disabled;
+
+    // Toggle Stop / Send button
+    if (thisBusy) {
+      $btnStop.style.display = 'inline-flex';
+      $btnSend.style.display = 'none';
+      $inputStatus.textContent = 'running...';
+      $inputStatus.className = 'input-status running';
+    } else {
+      $btnStop.style.display = 'none';
+      $btnSend.style.display = 'inline-flex';
+      if (!s || s.info.status !== 'exited') {
+        $inputStatus.textContent = '';
+        $inputStatus.className = 'input-status';
+      }
+    }
+  }
+
+  // ── Send message ──
+
+  function sendMessage() {
+    var content = $input.value.trim();
+    var sendId = activeId;
+    if (!content || !sendId) return;
+
+    var s = sessions[sendId];
+    if (!s || s.streaming) return;
+
+    var sourceInfo = (s.sourceInfo && s.sourceInfo.path) ? s.sourceInfo : null;
+
+    // Add user segment
+    var userSeg = { kind: 'user', content: content };
+    s.segments.push(userSeg);
+    if (sendId === activeId) appendSegmentDom(userSeg);
+
+    $input.value = '';
+    s.streaming = true;
+    updateInputState();
+
+    if (sendId === activeId) showThinking();
+
+    // Clear consumed source info
+    s.sourceInfo = null;
+    if (sendId === activeId) updateSourceBarDisplay();
+
+    fetch(API + '/sessions/' + sendId + '/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content, sourceInfo: sourceInfo })
+    }).then(function(resp) {
+      if (!resp.ok || !resp.body) {
+        throw new Error('HTTP ' + resp.status);
+      }
+      var reader = resp.body.getReader();
+      var decoder = new TextDecoder();
+      var sseBuf = '';
+
+      function read() {
+        reader.read().then(function(result) {
+          if (result.done) {
+            finishStream(sendId);
+            return;
+          }
+          sseBuf += decoder.decode(result.value, { stream: true });
+          var parts = sseBuf.split('\n\n');
+          sseBuf = parts.pop();
+          for (var i = 0; i < parts.length; i++) {
+            parseSsePart(parts[i], sendId);
+          }
+          read();
+        }).catch(function() {
+          finishStream(sendId);
+        });
+      }
+      read();
+    }).catch(function(err) {
+      addSysSegment('[error] ' + err.message, sendId);
+      finishStream(sendId);
+    });
+  }
+
+  function parseSsePart(part, sessionId) {
+    var lines = part.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (line.indexOf('data: ') !== 0) continue;
+      var raw = line.slice(6);
+      try {
+        var evt = JSON.parse(raw);
+        handleEvent(evt, sessionId);
+      } catch(e) {}
+    }
+  }
+
+  function handleEvent(evt, sessionId) {
+    var s = sessions[sessionId];
+    if (!s) return;
+
+    var isViewing = (sessionId === activeId);
+
+    switch (evt.type) {
+      case 'user':
+        break;
+
+      case 'assistant_text': {
+        if (isViewing) {
+          removeThinking();
+          updateProgress('');
+        }
+
+        var lastAsst = getLastAsstSeg(s);
+        if (lastAsst && !lastAsst.finalized) {
+          lastAsst.content += evt.content;
+          lastAsst._domOwn = false;
+          if (isViewing) appendSegmentDom(lastAsst);
+          else lastAsst._domOwn = true;
+        } else {
+          var seg = { kind: 'asst', content: evt.content || '', finalized: false };
+          s.segments.push(seg);
+          if (isViewing) appendSegmentDom(seg);
+          else seg._domOwn = true;
+        }
+        break;
+      }
+
+      case 'assistant_tool': {
+        var toolSeg = { kind: 'tool', name: evt.tool.name, input: evt.tool.input, result: evt.tool.result };
+        s.segments.push(toolSeg);
+        if (isViewing) appendSegmentDom(toolSeg);
+        else toolSeg._domOwn = true;
+        break;
+      }
+
+      case 'system': {
+        var sysSeg = { kind: 'sys', content: evt.content || '' };
+        s.segments.push(sysSeg);
+        if (isViewing) appendSegmentDom(sysSeg);
+        else sysSeg._domOwn = true;
+        break;
+      }
+
+      case 'done': {
+        if (isViewing) removeThinking();
+        // Finalize the last assistant segment
+        var lastAsst = getLastAsstSeg(s);
+        if (lastAsst && !lastAsst.finalized) {
+          lastAsst.finalized = true;
+          lastAsst._domOwn = false;
+          if (isViewing) {
+            var lastDom = $messages.querySelector('.seg-asst:last-child');
+            if (lastDom) {
+              var body = lastDom.querySelector('.seg-body');
+              if (body) {
+                body.innerHTML = renderMarkdown(lastAsst.content || '');
+                var cur = body.querySelector('.cursor');
+                if (cur) cur.remove();
+              }
+            }
+          }
+        }
+        if (evt.durationMs && isViewing) {
+          addSysSegment('Turn completed (' + (evt.durationMs / 1000).toFixed(1) + 's)', sessionId);
+        }
+        // Refresh session info
+        api('GET', '/sessions').then(function(list) {
+          for (var i = 0; i < list.length; i++) {
+            if (sessions[list[i].id]) {
+              sessions[list[i].id].info = list[i];
+            }
+          }
+          renderTabs();
+        });
+        finishStream(sessionId);
+        break;
+      }
+
+      case 'error': {
+        if (isViewing) {
+          addSysSegment('[error] ' + (evt.content || 'Unknown error'), sessionId);
+        } else {
+          var errSeg = { kind: 'sys', content: '[error] ' + (evt.content || 'Unknown error') };
+          s.segments.push(errSeg);
+        }
+        finishStream(sessionId);
+        break;
+      }
+
+      case 'progress': {
+        if (isViewing) updateProgress(evt.content || '');
+        break;
+      }
+    }
+  }
+
+  function addSysSegment(text, sessionId) {
+    var sid = sessionId || activeId;
+    var s = sessions[sid];
+    var seg = { kind: 'sys', content: text };
+    if (s) s.segments.push(seg);
+    if (sid === activeId) appendSegmentDom(seg);
+  }
+
+  // ── Thinking / Progress indicators ──
+
+  function showThinking() {
+    removeThinking();
+    var div = document.createElement('div');
+    div.className = 'msg-thinking';
+    div.id = 'thinkingIndicator';
+    div.innerHTML = 'Thinking <span class="dots"><span></span><span></span><span></span></span>';
+    $messages.appendChild(div);
+    scrollToBottom();
+  }
+
+  function removeThinking() {
+    var el = document.getElementById('thinkingIndicator');
+    if (el) el.remove();
+  }
+
+  function updateProgress(text) {
+    var el = document.getElementById('thinkingIndicator');
+    if (text) {
+      if (el) {
+        el.textContent = text;
+      } else {
+        el = document.createElement('div');
+        el.className = 'msg-thinking';
+        el.id = 'thinkingIndicator';
+        el.textContent = text;
+        $messages.appendChild(el);
+        scrollToBottom();
+      }
+    } else {
+      if (el) el.innerHTML = 'Processing <span class="dots"><span></span><span></span><span></span></span>';
+    }
+  }
+
+  function finishStream(sessionId) {
+    var s = sessions[sessionId];
+    if (!s || !s.streaming) return;
+    s.streaming = false;
+    updateInputState();
+
+    if (sessionId === activeId) {
+      $inputStatus.textContent = 'completed';
+      $inputStatus.className = 'input-status done';
+      setTimeout(function() {
+        if (!sessions[activeId] || !sessions[activeId].streaming) {
+          $inputStatus.textContent = '';
+          $inputStatus.className = 'input-status';
+        }
+      }, 3000);
+      $input.focus();
+    }
+  }
+
+  // ── Commands ──
+
+  function sendCommand(cmd) {
+    if (!activeId) return;
+    api('POST', '/sessions/' + activeId + '/command', { command: cmd }).then(function() {
+      if (cmd === '/new') {
+        sessions[activeId].segments = [];
+        sessions[activeId].info.title = 'New Session';
+        renderAllSegments();
+        renderTabs();
+      }
+      addSysSegment('Sent: ' + cmd);
+    }).catch(function(err) {
+      addSysSegment('[error] ' + err.message);
+    });
+  }
+
+  // ── Source info handling ──
+
+  function handleSourceInfo(source) {
+    // Find a suitable session: prefer active if non-exited, else any non-exited
+    var ids = Object.keys(sessions);
+    var nonExitedIds = ids.filter(function(id) { return sessions[id].info.status !== 'exited'; });
+    var targetId = null;
+
+    if (activeId && nonExitedIds.indexOf(activeId) >= 0) {
+      targetId = activeId;
+    } else if (nonExitedIds.length > 0) {
+      targetId = nonExitedIds[0];
+      selectSession(targetId);
+    } else {
+      // No sessions at all — auto-create
+      createSession().then(function(info) {
+        sessions[info.id].sourceInfo = source;
+        updateSourceBarDisplay();
+        $input.focus();
+      });
+      return;
+    }
+
+    // Store source info on the target session
+    sessions[targetId].sourceInfo = source;
+    if (targetId !== activeId) selectSession(targetId);
+    else updateSourceBarDisplay();
+    $input.focus();
+  }
+
+  // Clear source info
+  $sourceClose.addEventListener('click', function() {
+    if (activeId && sessions[activeId]) {
+      sessions[activeId].sourceInfo = null;
+    }
+    $sourceBar.className = 'source-bar';
+  });
+
+  // ── Tab click handler ──
+
+  $tabs.addEventListener('click', function(e) {
+    var tab = e.target.closest('.tab');
+    if (!tab) return;
+    if (e.target.dataset.close) {
+      var closeId = e.target.dataset.close;
+      if (confirm('Close this session?')) {
+        api('DELETE', '/sessions/' + closeId).then(function() {
+          delete sessions[closeId];
+          if (activeId === closeId) {
+            var remaining = Object.keys(sessions);
+            selectSession(remaining.length ? remaining[0] : null);
+          }
+          renderTabs();
+        });
+      }
+      return;
+    }
+    if (tab.id === 'tabNew') {
+      createSession();
+      return;
+    }
+    selectSession(tab.dataset.id);
+  });
+
+  // ── Buttons ──
+  $btnSend.addEventListener('click', sendMessage);
+  $btnNew.addEventListener('click', function() { sendCommand('/new'); });
+  $btnCompact.addEventListener('click', function() { sendCommand('/compact'); });
+
+  // Stop button — interrupt current generation
+  $btnStop.addEventListener('click', function() {
+    if (!activeId || !sessions[activeId] || !sessions[activeId].streaming) return;
+    api('POST', '/sessions/' + activeId + '/interrupt').then(function() {
+      addSysSegment('Interrupt sent');
+    }).catch(function(err) {
+      addSysSegment('[error] ' + err.message);
+    });
+  });
+
+  $input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // ── Keyboard shortcuts ──
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      window.parent.postMessage({ type: 'cc-prompter:hide' }, '*');
+    }
+  });
+
+  // ── Receive source info from parent ──
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'cc-prompter:source-info') {
+      handleSourceInfo(e.data.source);
+    }
+  });
+
+  // ── Init ──
+  api('GET', '/sessions').then(function(list) {
+    for (var i = 0; i < list.length; i++) {
+      sessions[list[i].id] = { info: list[i], segments: [], sourceInfo: null, streaming: false };
+    }
+    renderTabs();
+    if (list.length > 0) selectSession(list[0].id);
+  }).catch(function() {
+    // Sidecar might not be up yet
+  });
+
+})();
+</script>
+</body>
+</html>
