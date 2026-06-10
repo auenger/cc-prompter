@@ -146,6 +146,25 @@
   footer{border-top:1px solid var(--line);margin-top:60px;padding:30px 22px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:12.5px;}
   footer a{color:var(--cyan);text-decoration:none;}
 
+  /* ---------- demo screenshot ---------- */
+  .demo-shot{
+    margin:28px 0 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:0 8px 40px rgba(0,0,0,.45);
+  }
+  .demo-shot img{width:100%;display:block;}
+
+  /* ---------- shortcut table ---------- */
+  .shortcut-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:24px 0;}
+  .scard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;transition:.15s;}
+  .scard:hover{border-color:var(--cyan);}
+  .scard .keys{font-family:var(--mono);font-size:14px;color:var(--green);margin-bottom:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .scard .keys kbd{
+    background:#0c1420;border:1px solid var(--line);border-radius:5px;padding:3px 10px;
+    font-family:var(--mono);font-size:13px;color:var(--green);box-shadow:0 2px 0 var(--line);
+  }
+  .scard h4{font-family:var(--mono);font-size:14px;color:#fff;margin:0 0 6px;}
+  .scard p{font-size:13px;color:var(--dim);margin:0;}
+
   /* ---------- pill ---------- */
   .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--line);color:var(--dim);margin:0 4px;}
   .pill.ok{border-color:rgba(55,244,154,.3);color:var(--green);}
@@ -170,11 +189,12 @@
     <nav class="toc">
       <a href="#overview">00·总览</a>
       <a href="#install">01·安装</a>
-      <a href="#flow">02·流程</a>
-      <a href="#features">03·特性</a>
-      <a href="#compat">04·兼容性</a>
-      <a href="#arch">05·架构</a>
-      <a href="#api">06·API</a>
+      <a href="#usage">02·使用</a>
+      <a href="#flow">03·流程</a>
+      <a href="#features">04·特性</a>
+      <a href="#compat">05·兼容性</a>
+      <a href="#arch">06·架构</a>
+      <a href="#api">07·API</a>
     </nav>
   </div>
 </header>
@@ -191,6 +211,9 @@
     <div class="stat"><b>5+</b><small>构建工具兼容</small></div>
     <div class="stat"><b>0 侵入</b><small>生产构建无副作用</small></div>
     <div class="stat"><b>∞ Session</b><small>多会话并行独立</small></div>
+  </div>
+  <div class="demo-shot">
+    <img src="./demo.png" alt="CC Prompter Demo — Shift+Alt 点击元素弹出 Claude Code 面板">
   </div>
 </div>
 
@@ -236,9 +259,63 @@
   </div>
 </section>
 
-<!-- ═══ 02 Flow ═══ -->
+<!-- ═══ 02 Usage ═══ -->
+<section id="usage">
+  <h2><span class="num">02</span>交互指南</h2>
+  <p class="lead">面板触发、隐藏、召回、拖拽、缩放 —— 所有操作一目了然。</p>
+
+  <div class="shortcut-grid">
+    <div class="scard">
+      <div class="keys"><kbd>Shift</kbd>+<kbd>Alt</kbd>+<span style="color:var(--dim)">悬停</span></div>
+      <h4>元素定位模式</h4>
+      <p>鼠标移到页面元素上，按住 Shift + Alt。元素高亮，顶部浮出源码路径（如 <code>Button.tsx:12:5</code>）。</p>
+    </div>
+    <div class="scard">
+      <div class="keys"><kbd>Shift</kbd>+<kbd>Alt</kbd>+<span style="color:var(--dim)">点击</span></div>
+      <h4>弹出面板</h4>
+      <p>在定位模式下点击元素，弹出浮动 iframe 面板，自动将该元素的文件路径、行列号附加到当前 session 上下文。</p>
+    </div>
+    <div class="scard">
+      <div class="keys"><kbd>Esc</kbd></div>
+      <h4>隐藏面板</h4>
+      <p>按 Escape 隐藏面板。面板不会销毁，Claude 会话保持不变，下次召回时状态完整恢复。</p>
+    </div>
+    <div class="scard">
+      <div class="keys"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></div>
+      <h4>召回面板</h4>
+      <p>隐藏后随时按 Ctrl+Shift+P（macOS 同样）重新显示面板。不需要重新选择元素。</p>
+    </div>
+    <div class="scard">
+      <div class="keys"><span style="color:var(--dim)">拖拽顶栏</span></div>
+      <h4>移动面板</h4>
+      <p>按住面板顶栏拖拽，自由移动到页面任意位置。不影响页面其他交互。</p>
+    </div>
+    <div class="scard">
+      <div class="keys"><span style="color:var(--dim)">拖拽边缘 / 四角</span></div>
+      <h4>调整大小</h4>
+      <p>拖拽面板的边缘或四角，调整面板宽高。面板最小尺寸有下限，不会缩到看不见。</p>
+    </div>
+    <div class="scard">
+      <div class="keys"><span style="color:var(--green)">Stop</span></div>
+      <h4>中断生成</h4>
+      <p>Claude 正在生成时，点击输入框旁边的 Stop 按钮。发送 Escape 中断，会话不销毁，可继续对话。</p>
+    </div>
+    <div class="scard">
+      <div class="keys"><span style="color:var(--cyan)">+</span></div>
+      <h4>多 Session</h4>
+      <p>面板顶部 Tab 栏点击「+」创建新会话。每个 Session 独立 PTY 进程、独立源码定位、独立对话上下文。可并行工作互不干扰。</p>
+    </div>
+  </div>
+
+  <div class="panel win">
+    <span class="tag">TIP</span>
+    <p>完整工作流：<strong>Shift+Alt 点击</strong> 定位元素并弹出面板 → <strong>输入修改描述</strong>（如「把按钮改成圆角蓝色」） → <strong>Claude 修改代码</strong> → <strong>Vite HMR 自动刷新</strong> 页面。全程无需离开浏览器。</p>
+  </div>
+</section>
+
+<!-- ═══ 03 Flow ═══ -->
 <section id="flow">
-  <h2><span class="num">02</span>工作流程</h2>
+  <h2><span class="num">03</span>工作流程</h2>
   <p class="lead">从点击到代码修改完成，四步闭环。</p>
 
   <div class="flow">
@@ -268,9 +345,9 @@
   </div>
 </section>
 
-<!-- ═══ 03 Features ═══ -->
+<!-- ═══ 04 Features ═══ -->
 <section id="features">
-  <h2><span class="num">03</span>功能特性</h2>
+  <h2><span class="num">04</span>功能特性</h2>
   <p class="lead">一个插件集成全套能力。</p>
 
   <div class="fgrid">
@@ -307,9 +384,9 @@
   </div>
 </section>
 
-<!-- ═══ 04 Compat ═══ -->
+<!-- ═══ 05 Compat ═══ -->
 <section id="compat">
-  <h2><span class="num">04</span>构建工具兼容性</h2>
+  <h2><span class="num">05</span>构建工具兼容性</h2>
   <p class="lead">底层使用 <a class="inl" href="https://github.com/zh-lx/code-inspector">code-inspector-plugin</a>，支持主流前端构建工具。</p>
 
   <table>
@@ -331,9 +408,9 @@
   </div>
 </section>
 
-<!-- ═══ 05 Arch ═══ -->
+<!-- ═══ 06 Arch ═══ -->
 <section id="arch">
-  <h2><span class="num">05</span>架构</h2>
+  <h2><span class="num">06</span>架构</h2>
   <p class="lead">Vite 插件 + Express sidecar + node-pty 进程管理。</p>
 
   <div class="diagram">
@@ -371,9 +448,9 @@
   </table>
 </section>
 
-<!-- ═══ 06 API ═══ -->
+<!-- ═══ 07 API ═══ -->
 <section id="api">
-  <h2><span class="num">06</span>API 端点</h2>
+  <h2><span class="num">07</span>API 端点</h2>
   <p class="lead">Sidecar 自动启动在端口 3456（被占用时自动递增）。</p>
 
   <table>
