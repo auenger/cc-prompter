@@ -88,6 +88,24 @@ module.exports = withCcPrompt()({
 >
 > 支持 Next.js Pages Router + App Router（webpack 模式）。Turbopack 暂不支持。
 
+### 配置（Webpack）
+
+在 `webpack.config.js` 中添加插件（适用于任意 webpack 项目）：
+
+```javascript
+const { CcPromptWebpackPlugin } = require('cc-prompter/webpack');
+
+module.exports = {
+  plugins: [
+    new CcPromptWebpackPlugin(),  // ← 仅 dev 模式生效
+    // ... 其他插件
+  ],
+};
+```
+
+> `CcPromptWebpackPlugin` 是一个标准 webpack Plugin，自动完成与 Next.js 版相同的三件事。
+> 默认在 `NODE_ENV !== 'production'` 时激活，也可手动传 `dev: true/false`。
+
 ### 一键安装（给 Claude Code 用）
 
 复制下面这行，粘贴给 Claude Code，它会自动帮你完成安装和配置：
@@ -110,6 +128,10 @@ plugins: [ccPromptPlugin(), react()]
 Next.js 配置方法：在 next.config.js 中使用 withCcPrompt 包装，示例：
 const { withCcPrompt } = require('cc-prompter/next');
 module.exports = withCcPrompt()({ /* next config */ });
+
+Webpack 配置方法：在 webpack.config.js 中添加 CcPromptWebpackPlugin，示例：
+const { CcPromptWebpackPlugin } = require('cc-prompter/webpack');
+plugins: [new CcPromptWebpackPlugin()]
 ```
 
 ## 怎么用
@@ -170,6 +192,7 @@ Claude 正在生成时，点击输入框旁边的 **Stop** 按钮，发送 Escap
 | 构建工具 | CC Prompter 状态 | 说明 |
 |----------|-----------------|------|
 | **Vite** | ✅ 完整支持 | `ccPromptPlugin()` — 默认配置 |
+| **Webpack** | ✅ 完整支持 | `CcPromptWebpackPlugin` — 通用 webpack 插件 |
 | **Next.js (webpack)** | ✅ 完整支持 | `withCcPrompt()` — Pages + App Router |
 | Next.js (Turbopack) | 🔜 计划中 | code-inspector 已支持 |
 | esbuild | 🔜 计划中 | code-inspector 已支持 |

@@ -288,6 +288,23 @@
     <p>支持 Pages Router + App Router（webpack 模式）。Turbopack 暂不支持。<br>零代码侵入 — 无需修改任何页面或 layout 文件。</p>
   </div>
 
+  <h3>Webpack 配置</h3>
+  <div class="code">
+    <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> webpack.config.js</div>
+    <pre><span class="c">// 适用于任意 webpack 项目 — 标准 Plugin 类</span>
+<span class="k">const</span> { <span class="f">CcPromptWebpackPlugin</span> } = <span class="f">require</span>(<span class="s">'cc-prompter/webpack'</span>);
+
+<span class="k">module.exports</span> = {
+  <span class="a">plugins</span>: [
+    <span class="k">new</span> <span class="f">CcPromptWebpackPlugin</span>(),  <span class="c">// 仅 dev 模式生效</span>
+  ],
+};</pre>
+  </div>
+  <div class="panel ok" style="border-left:3px solid var(--green);">
+    <span class="tag">WEBPACK</span>
+    <p>通用 webpack 插件，自动完成 sidecar 启动 + code-inspector + 脚本注入。<br>默认 <code>NODE_ENV !== 'production'</code> 时激活。</p>
+  </div>
+
   <div class="code">
     <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> start</div>
     <pre><span class="f">npm</span> run dev</pre>
@@ -297,7 +314,7 @@
   <div class="prompt-box">
     <h3>🎯 复制以下提示词 → 粘贴给 Claude Code</h3>
     <p>在你的前端项目中，让 Claude Code 自动完成安装和配置（包含 Mac 和 Windows 的完整步骤）：</p>
-    <div class="one-line">帮我安装 cc-prompter 并配置。这是一个 Vite/Next.js 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能。安装方法：macOS / Linux 直接 npm install cc-prompter 即可。Windows 需要：1) npm install cc-prompter 后 cd node_modules/cc-prompter，2) npm install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts，3) 从 https://github.com/nicabar/node-pty-prebuilt-multiarch/releases 下载 win32-x64 prebuild 压缩包，4) 解压到 node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/。GitHub 超时可用 ghfast.top 镜像。Vite 配置：在 vite.config.ts 的 plugins 数组中添加 ccPromptPlugin()。Next.js 配置：在 next.config.js 中使用 withCcPrompt() 包装。</div>
+    <div class="one-line">帮我安装 cc-prompter 并配置。这是一个 Vite/Next.js 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能。安装方法：macOS / Linux 直接 npm install cc-prompter 即可。Windows 需要：1) npm install cc-prompter 后 cd node_modules/cc-prompter，2) npm install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts，3) 从 https://github.com/nicabar/node-pty-prebuilt-multiarch/releases 下载 win32-x64 prebuild 压缩包，4) 解压到 node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/。GitHub 超时可用 ghfast.top 镜像。Vite 配置：在 vite.config.ts 的 plugins 数组中添加 ccPromptPlugin()。Next.js 配置：在 next.config.js 中使用 withCcPrompt() 包装。Webpack 配置：在 webpack.config.js 中添加 new CcPromptWebpackPlugin()。</div>
   </div>
 
   <div class="panel win">
@@ -442,6 +459,7 @@
     </thead>
     <tbody>
       <tr><td>Vite</td><td><span class="pill ok">✓ 支持</span></td><td><code>ccPromptPlugin()</code> — 完整支持</td></tr>
+      <tr><td>Webpack</td><td><span class="pill ok">✓ 支持</span></td><td><code>CcPromptWebpackPlugin</code> — 通用 webpack 插件</td></tr>
       <tr><td>Next.js (webpack)</td><td><span class="pill ok">✓ 支持</span></td><td><code>withCcPrompt()</code> — Pages + App Router</td></tr>
       <tr><td>Next.js (Turbopack)</td><td><span class="pill soon">计划中</span></td><td>code-inspector 已支持</td></tr>
       <tr><td>esbuild</td><td><span class="pill soon">计划中</span></td><td>code-inspector 已支持</td></tr>
@@ -487,7 +505,8 @@
     </thead>
     <tbody>
       <tr><td>vite-plugin</td><td>TypeScript</td><td>Vite 集成：code-inspector + sidecar + 脚本注入</td></tr>
-      <tr><td>next-plugin</td><td>TypeScript</td><td>Next.js 集成：webpack entry + DefinePlugin 注入</td></tr>
+      <tr><td>next-plugin</td><td>TypeScript</td><td>Next.js 集成：webpack config wrapper</td></tr>
+      <tr><td>webpack-plugin</td><td>TypeScript</td><td>通用 webpack 插件：标准 Plugin 类</td></tr>
       <tr><td>sidecar</td><td>Express</td><td>管理 PTY session 生命周期，REST API + SSE 流</td></tr>
       <tr><td>pty-session</td><td>node-pty</td><td>管理 Claude CLI 进程，PTY 输出 + JSONL 双通道解析</td></tr>
       <tr><td>panel.html</td><td>纯 HTML/CSS/JS</td><td>iframe 面板 UI，多 session tab，Markdown 渲染</td></tr>

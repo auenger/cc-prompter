@@ -1,6 +1,6 @@
 {
   "name": "cc-prompter",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Vite/Next.js plugin — Shift+Alt click element → Claude Code edits code → page auto-refreshes",
   "type": "module",
   "main": "dist/index.cjs",
@@ -16,6 +16,11 @@
       "types": "./dist/next-plugin.d.ts",
       "import": "./dist/next-plugin.js",
       "require": "./dist/next-plugin.cjs"
+    },
+    "./webpack": {
+      "types": "./dist/webpack-plugin.d.ts",
+      "import": "./dist/webpack-plugin.js",
+      "require": "./dist/webpack-plugin.cjs"
     },
     "./client-entry": {
       "default": "./dist/client-entry.js"
