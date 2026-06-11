@@ -1,12 +1,18 @@
 /**
  * CC Prompter — Package Entry
  *
- * Vite plugin that adds Claude Code PTY sessions to your dev workflow.
+ * Provides plugins for Vite and Next.js dev servers.
  *
- * Usage:
+ * Usage (Vite):
  *   import { ccPromptPlugin } from 'cc-prompter';
  *   // in vite.config.ts plugins: [ccPromptPlugin()]
+ *
+ * Usage (Next.js):
+ *   const { withCcPrompt } = require('cc-prompter/next');
+ *   module.exports = withCcPrompt()({ /* next config *\/ });
  */
 
 export { ccPromptPlugin } from './vite-plugin.js';
 export type { CcPromptOptions } from './vite-plugin.js';
+export { withCcPrompt } from './next-plugin.js';
+export type { CcPromptNextOptions } from './next-plugin.js';

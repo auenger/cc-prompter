@@ -204,9 +204,9 @@
 
 <!-- ═══ Hero ═══ -->
 <div class="hero" id="overview">
-  <span class="kicker">// VITE PLUGIN · OPEN SOURCE · MIT</span>
+  <span class="kicker">// VITE & NEXT.JS PLUGIN · OPEN SOURCE · MIT</span>
   <h1>CC <span class="accent">Prompter</span></h1>
-  <p class="sub"><strong style="color:#fff;">哪里不对点哪里，So easy！</strong> — Shift+Alt 点击页面元素 → 弹出 Claude Code 面板 → 描述修改 → 代码自动改 → 页面自动刷新。只需一行配置 <code>ccPromptPlugin()</code></p>
+  <p class="sub"><strong style="color:#fff;">哪里不对点哪里，So easy！</strong> — Shift+Alt 点击页面元素 → 弹出 Claude Code 面板 → 描述修改 → 代码自动改 → 页面自动刷新。支持 Vite 和 Next.js，一行配置搞定</p>
   <div class="stats">
     <div class="stat"><b>🎯 精确定位</b><small>不再需要费劲描述或截图<br>点击即定位源码行列号</small></div>
     <div class="stat"><b>💰 省 tokens</b><small>不需要让 Claude 反复探索<br>一个点击搞定所有上下文</small></div>
@@ -273,17 +273,31 @@
 });</pre>
   </div>
 
+  <h3>Next.js 配置</h3>
+  <div class="code">
+    <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> next.config.js</div>
+    <pre><span class="c">// 使用 withCcPrompt 包装你的 Next.js 配置即可</span>
+<span class="k">const</span> { <span class="f">withCcPrompt</span> } = <span class="f">require</span>(<span class="s">'cc-prompter/next'</span>);
+
+<span class="k">module.exports</span> = <span class="f">withCcPrompt</span>()({
+  <span class="c">// ... 正常 Next.js 配置</span>
+});</pre>
+  </div>
+  <div class="panel ok" style="border-left:3px solid var(--cyan);">
+    <span class="tag">NEXT.JS</span>
+    <p>支持 Pages Router + App Router（webpack 模式）。Turbopack 暂不支持。<br>零代码侵入 — 无需修改任何页面或 layout 文件。</p>
+  </div>
+
   <div class="code">
     <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> start</div>
-    <pre><span class="f">npm</span> run dev
-<span class="c"># Shift+Alt 点击页面元素 → 面板弹出 → 输入指令 → 自动完成</span></pre>
+    <pre><span class="f">npm</span> run dev</pre>
   </div>
 
   <h3>一键安装提示（给 Claude Code 用）</h3>
   <div class="prompt-box">
     <h3>🎯 复制以下提示词 → 粘贴给 Claude Code</h3>
     <p>在你的前端项目中，让 Claude Code 自动完成安装和配置（包含 Mac 和 Windows 的完整步骤）：</p>
-    <div class="one-line">帮我安装 cc-prompter 并在 vite.config.ts 中添加 ccPromptPlugin() 插件配置，这是一个 Vite 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能。安装方法：macOS / Linux 直接 npm install cc-prompter 即可。Windows 需要：1) npm install cc-prompter 后 cd node_modules/cc-prompter，2) npm install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts，3) 从 https://github.com/nicabar/node-pty-prebuilt-multiarch/releases 下载 win32-x64 prebuild 压缩包，4) 解压到 node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/。GitHub 超时可用 ghfast.top 镜像。配置方法：在 vite.config.ts 的 plugins 数组中添加 ccPromptPlugin()，示例：import { ccPromptPlugin } from 'cc-prompter'; plugins: [ccPromptPlugin(), react()]</div>
+    <div class="one-line">帮我安装 cc-prompter 并配置。这是一个 Vite/Next.js 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能。安装方法：macOS / Linux 直接 npm install cc-prompter 即可。Windows 需要：1) npm install cc-prompter 后 cd node_modules/cc-prompter，2) npm install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts，3) 从 https://github.com/nicabar/node-pty-prebuilt-multiarch/releases 下载 win32-x64 prebuild 压缩包，4) 解压到 node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/。GitHub 超时可用 ghfast.top 镜像。Vite 配置：在 vite.config.ts 的 plugins 数组中添加 ccPromptPlugin()。Next.js 配置：在 next.config.js 中使用 withCcPrompt() 包装。</div>
   </div>
 
   <div class="panel win">
@@ -427,10 +441,10 @@
       <tr><th>构建工具</th><th>状态</th><th>说明</th></tr>
     </thead>
     <tbody>
-      <tr><td>Vite</td><td><span class="pill ok">✓ 支持</span></td><td>完整支持，默认配置</td></tr>
-      <tr><td>Webpack</td><td><span class="pill soon">计划中</span></td><td>code-inspector 已支持，需要适配 sidecar 启动逻辑</td></tr>
+      <tr><td>Vite</td><td><span class="pill ok">✓ 支持</span></td><td><code>ccPromptPlugin()</code> — 完整支持</td></tr>
+      <tr><td>Next.js (webpack)</td><td><span class="pill ok">✓ 支持</span></td><td><code>withCcPrompt()</code> — Pages + App Router</td></tr>
+      <tr><td>Next.js (Turbopack)</td><td><span class="pill soon">计划中</span></td><td>code-inspector 已支持</td></tr>
       <tr><td>esbuild</td><td><span class="pill soon">计划中</span></td><td>code-inspector 已支持</td></tr>
-      <tr><td>Turbopack</td><td><span class="pill soon">计划中</span></td><td>code-inspector 已支持</td></tr>
       <tr><td>Mako</td><td><span class="pill soon">计划中</span></td><td>code-inspector 已支持</td></tr>
     </tbody>
   </table>
@@ -444,12 +458,12 @@
 <!-- ═══ 06 Arch ═══ -->
 <section id="arch">
   <h2><span class="num">06</span>架构</h2>
-  <p class="lead">Vite 插件 + Express sidecar + node-pty 进程管理。</p>
+  <p class="lead">Vite / Next.js 插件 + Express sidecar + node-pty 进程管理。</p>
 
   <div class="diagram">
 <pre>
 <span class="dim">┌──────────────────────────────────────────────────────┐</span>
-<span class="dim">│</span>                  <span class="a">Vite Dev Server</span>                      <span class="dim">│</span>
+<span class="dim">│</span>                  <span class="a">Vite / Next.js Dev Server</span>                      <span class="dim">│</span>
 <span class="dim">│</span>                                                       <span class="dim">│</span>
 <span class="dim">│</span>   <span class="a">React App</span>    <span class="o">inject.js</span>    <span class="g">panel.html</span>               <span class="dim">│</span>
 <span class="dim">│</span>   (main app) ◄──► (events) ───► (iframe)              <span class="dim">│</span>
@@ -472,7 +486,8 @@
       <tr><th>组件</th><th>技术</th><th>说明</th></tr>
     </thead>
     <tbody>
-      <tr><td>vite-plugin</td><td>TypeScript</td><td>组合 code-inspector + sidecar 启动 + 脚本注入</td></tr>
+      <tr><td>vite-plugin</td><td>TypeScript</td><td>Vite 集成：code-inspector + sidecar + 脚本注入</td></tr>
+      <tr><td>next-plugin</td><td>TypeScript</td><td>Next.js 集成：webpack entry + DefinePlugin 注入</td></tr>
       <tr><td>sidecar</td><td>Express</td><td>管理 PTY session 生命周期，REST API + SSE 流</td></tr>
       <tr><td>pty-session</td><td>node-pty</td><td>管理 Claude CLI 进程，PTY 输出 + JSONL 双通道解析</td></tr>
       <tr><td>panel.html</td><td>纯 HTML/CSS/JS</td><td>iframe 面板 UI，多 session tab，Markdown 渲染</td></tr>

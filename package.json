@@ -1,7 +1,7 @@
 {
   "name": "cc-prompter",
-  "version": "0.2.1",
-  "description": "Vite plugin — Shift+Alt click element → Claude Code edits code → page auto-refreshes",
+  "version": "0.3.0",
+  "description": "Vite/Next.js plugin — Shift+Alt click element → Claude Code edits code → page auto-refreshes",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -11,6 +11,14 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./next": {
+      "types": "./dist/next-plugin.d.ts",
+      "import": "./dist/next-plugin.js",
+      "require": "./dist/next-plugin.cjs"
+    },
+    "./client-entry": {
+      "default": "./dist/client-entry.js"
     }
   },
   "files": [
@@ -43,6 +51,11 @@
   "peerDependencies": {
     "vite": ">=5.0.0"
   },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
@@ -53,6 +66,9 @@
   "keywords": [
     "vite",
     "vite-plugin",
+    "nextjs",
+    "next.js",
+    "webpack",
     "claude",
     "claude-code",
     "pty",

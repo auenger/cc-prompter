@@ -2,7 +2,7 @@
 
 **哪里不对点哪里，So easy！**
 
-一个 Vite 插件，将 [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) 接入你的前端开发工作流。通过可视化元素定位 + 常驻 PTY 会话，实现「点击 → 描述 → 代码自动修改 → HMR 刷新」的闭环。
+一个 Vite / Next.js 插件，将 [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) 接入你的前端开发工作流。通过可视化元素定位 + 常驻 PTY 会话，实现「点击 → 描述 → 代码自动修改 → HMR 刷新」的闭环。
 
 > 🎯 **精确定位修改点** — 不再需要费劲描述「左上角那个蓝色按钮」或者截图了，直接点击页面元素，源码路径、行列号自动带上。
 >
@@ -52,7 +52,7 @@ npm install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts
 
 > 前提：本地需要已安装 [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)（终端执行 `claude` 命令可用）。插件仅在 dev 模式生效，`npm run build` 不会注入任何代码。
 
-### 配置
+### 配置（Vite）
 
 在 `vite.config.ts` 中添加插件（一行配置即可）：
 
@@ -69,17 +69,32 @@ export default defineConfig({
 });
 ```
 
-> `ccPromptPlugin()` 内部自动完成三件事：
+### 配置（Next.js）
+
+在 `next.config.js` 中使用 `withCcPrompt` 包装：
+
+```javascript
+const { withCcPrompt } = require('cc-prompter/next');
+
+module.exports = withCcPrompt()({
+  // ... 正常 Next.js 配置
+});
+```
+
+> `withCcPrompt()` 内部自动完成三件事：
 > 1. 集成 `code-inspector-plugin`（编译时给 DOM 打上源码路径标签）
 > 2. 启动 Express sidecar 服务（管理 Claude PTY 会话）
-> 3. 注入交互脚本（监听 Shift+Alt 点击，弹出面板）
+> 3. 通过 webpack entry 注入交互脚本（监听 Shift+Alt 点击，弹出面板）
+>
+> 支持 Next.js Pages Router + App Router（webpack 模式）。Turbopack 暂不支持。
 
 ### 一键安装（给 Claude Code 用）
 
 复制下面这行，粘贴给 Claude Code，它会自动帮你完成安装和配置：
 
 ```
-帮我安装 cc-prompter 并在 vite.config.ts 中添加 ccPromptPlugin() 插件配置，这是一个 Vite 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能。安装方法：
+帮我安装 cc-prompter 并配置。这是一个 Vite/Next.js 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能。
+安装方法：
 - macOS / Linux: 直接 npm install cc-prompter 即可
 - Windows: npm install cc-prompter 后，还需要安装 PTY 原生模块：
   1. cd node_modules/cc-prompter
@@ -88,9 +103,13 @@ export default defineConfig({
   4. 解压到 node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/
 如果 GitHub 下载超时，使用 ghfast.top 镜像。
 
-配置方法：在 vite.config.ts 的 plugins 数组中添加 ccPromptPlugin()，示例：
+Vite 配置方法：在 vite.config.ts 的 plugins 数组中添加 ccPromptPlugin()，示例：
 import { ccPromptPlugin } from 'cc-prompter';
 plugins: [ccPromptPlugin(), react()]
+
+Next.js 配置方法：在 next.config.js 中使用 withCcPrompt 包装，示例：
+const { withCcPrompt } = require('cc-prompter/next');
+module.exports = withCcPrompt()({ /* next config */ });
 ```
 
 ## 怎么用
@@ -141,7 +160,7 @@ Claude 正在生成时，点击输入框旁边的 **Stop** 按钮，发送 Escap
 - ⚡ **流式渲染** — Markdown 实时渲染，工具调用按序展示，进度指示
 - ⏹ **随时中断** — Stop 按钮打断 Claude 生成，会话不销毁
 - 🖼 **灵活面板** — 浮动 iframe，拖拽移动、边缘缩放、快捷键召回
-- 🔌 **零配置** — 一行 `ccPromptPlugin()` 搞定所有集成
+- 🔌 **零配置** — 一行配置搞定所有集成（Vite / Next.js 均支持）
 - 🏭 **零侵入** — 仅 dev 模式生效，生产构建不注入任何代码
 
 ## 构建工具兼容性
@@ -150,10 +169,10 @@ Claude 正在生成时，点击输入框旁边的 **Stop** 按钮，发送 Escap
 
 | 构建工具 | CC Prompter 状态 | 说明 |
 |----------|-----------------|------|
-| **Vite** | ✅ 完整支持 | 默认配置 |
-| Webpack | 🔜 计划中 | code-inspector 已支持，需适配 sidecar 启动逻辑 |
+| **Vite** | ✅ 完整支持 | `ccPromptPlugin()` — 默认配置 |
+| **Next.js (webpack)** | ✅ 完整支持 | `withCcPrompt()` — Pages + App Router |
+| Next.js (Turbopack) | 🔜 计划中 | code-inspector 已支持 |
 | esbuild | 🔜 计划中 | code-inspector 已支持 |
-| Turbopack | 🔜 计划中 | code-inspector 已支持 |
 | Mako | 🔜 计划中 | code-inspector 已支持 |
 
 > `code-inspector-plugin` 本身已支持上述五种构建工具。CC Prompter 的 sidecar 和脚本注入部分与构建工具无关，只需适配各工具的插件注册方式即可扩展。
@@ -174,18 +193,26 @@ interface CcPromptOptions {
 ### 示例
 
 ```typescript
-// 自定义端口
+// Vite — 自定义端口
 ccPromptPlugin({ port: 4000 })
 
-// 禁用内置 code-inspector（你自己配置）
+// Vite — 禁用内置 code-inspector（你自己配置）
 ccPromptPlugin({ inspector: false })
+```
+
+```javascript
+// Next.js — 自定义端口
+module.exports = withCcPrompt({ port: 4000 })({ /* next config */ })
+
+// Next.js — 禁用 code-inspector
+module.exports = withCcPrompt({ inspector: false })({ /* next config */ })
 ```
 
 ## 架构
 
 ```text
 ┌─────────────────────────────────────────────────┐
-│                  Vite Dev Server                 │
+│         Vite / Next.js Dev Server               │
 │                                                  │
 │  ┌──────────┐   ┌───────────┐   ┌────────────┐  │
 │  │  React    │   │  inject.js│   │  panel.html│  │
@@ -207,7 +234,8 @@ ccPromptPlugin({ inspector: false })
 
 | 组件 | 技术 | 说明 |
 |------|------|------|
-| vite-plugin | TypeScript | 组合 code-inspector + sidecar 启动 + 脚本注入 |
+| vite-plugin | TypeScript | Vite 集成：code-inspector + sidecar + 脚本注入 |
+| next-plugin | TypeScript | Next.js 集成：webpack entry + DefinePlugin 注入 |
 | sidecar | Express | 管理 PTY session 生命周期，REST API + SSE 流 |
 | pty-session | node-pty | 管理 Claude CLI 进程，PTY 输出 + JSONL 双通道解析 |
 | panel.html | 纯 HTML/CSS/JS | iframe 面板 UI，多 session tab，Markdown 渲染 |

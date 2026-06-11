@@ -1,16 +1,53 @@
 (function() {
-  var SIDECAR = 'http://localhost:3456'; // default, will be overridden
+  var DEFAULT_PORT = 3456;
+  var SIDECAR = 'http://localhost:' + DEFAULT_PORT;
   var portLoaded = false;
 
-  // Fetch actual sidecar port from vite middleware
-  fetch('/__cc-port').then(function(r) { return r.text(); }).then(function(p) {
-    if (p && parseInt(p) > 0) {
-      SIDECAR = 'http://localhost:' + p;
-      portLoaded = true;
+  // Port discovery strategy (ordered by priority):
+  // 1. Global variable (set by Next.js/bundler plugin with known port)
+  // 2. fetch('/__cc-port') from dev server middleware (Vite)
+  // 3. Probe sidecar directly at http://localhost:${port}/__cc-port (Next.js / other)
+
+  // Strategy 1: Check global variable
+  if (typeof window !== 'undefined' && window.__CC_PROMPTER_PORT__) {
+    SIDECAR = 'http://localhost:' + window.__CC_PROMPTER_PORT__;
+    portLoaded = true;
+  }
+
+  // Strategy 2: Fetch from dev server middleware
+  if (!portLoaded) {
+    fetch('/__cc-port').then(function(r) { return r.text(); }).then(function(p) {
+      if (p && parseInt(p) > 0) {
+        SIDECAR = 'http://localhost:' + p;
+        portLoaded = true;
+      }
+    }).catch(function() {
+      // Strategy 3: Probe sidecar directly
+      var start = window.__CC_PROMPTER_START_PORT__ || DEFAULT_PORT;
+      probeSidecar(start, start + 10);
+    });
+  }
+
+  function probeSidecar(port, maxPort) {
+    function tryNext() {
+      if (port > maxPort || portLoaded) return;
+      fetch('http://localhost:' + port + '/__cc-port').then(function(r) {
+        return r.text();
+      }).then(function(p) {
+        if (p && parseInt(p) > 0) {
+          SIDECAR = 'http://localhost:' + p;
+          portLoaded = true;
+        } else {
+          port++;
+          tryNext();
+        }
+      }).catch(function() {
+        port++;
+        tryNext();
+      });
     }
-  }).catch(function() {
-    // Fallback: use default port
-  });
+    tryNext();
+  }
   var container = null;
   var iframe = null;
   var iframeReady = false;

@@ -278,11 +278,22 @@ export function startSidecar(projectRoot: string, options?: SidecarOptions): Ser
   });
 
   const server = createServer(app);
+  let actualPort = startPort;
+
+  // ── Port discovery endpoint (used by inject.js for Next.js and other setups) ──
+  app.get('/__cc-port', (_req, res) => {
+    const addr = server.address();
+    const port = addr && typeof addr === 'object' ? addr.port : actualPort;
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.end(String(port));
+  });
+
   const MAX_PORT = startPort + 10;
 
   function tryListen(port: number): Promise<Server> {
     return new Promise((resolve, reject) => {
       server.listen(port, () => {
+        actualPort = port;
         console.log(`[cc-prompter] Sidecar running on http://localhost:${port}`);
         resolve(server);
       });
