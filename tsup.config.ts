@@ -8,7 +8,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   // Don't bundle node-pty — it's a native module
-  external: ['node-pty-prebuilt-multiarch', 'code-inspector-plugin'],
+  external: ['node-pty-prebuilt-multiarch', '@homebridge/node-pty-prebuilt-multiarch', 'node-pty', 'code-inspector-plugin'],
   // Copy static assets to dist so fs.readFileSync works at runtime
   // panel.html and inject.js are read from __dirname (which is dist/ after build)
   onSuccess: 'cp panel.html inject.js dist/ 2>/dev/null || copy panel.html inject.js dist/ 2>/dev/null || true',

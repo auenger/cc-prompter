@@ -1,7 +1,7 @@
 {
   "name": "cc-prompter",
-  "version": "0.1.0",
-  "description": "Vite plugin — Claude Code PTY sessions with code-inspector integration",
+  "version": "0.2.0",
+  "description": "Vite plugin — Shift+Alt click element → Claude Code edits code → page auto-refreshes",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -14,20 +14,31 @@
     }
   },
   "files": [
-    "dist",
-    "panel.html",
-    "inject.js"
+    "dist"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch"
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/auenger/cc-prompter.git"
+  },
+  "homepage": "https://auenger.github.io/cc-prompter/",
+  "bugs": "https://github.com/auenger/cc-prompter/issues",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
     "code-inspector-plugin": "^1.5.3",
     "express": "^4.21.2"
   },
   "optionalDependencies": {
-    "node-pty-prebuilt-multiarch": "^0.10.1-pre.5"
+    "node-pty-prebuilt-multiarch": "^0.10.1-pre.5",
+    "@homebridge/node-pty-prebuilt-multiarch": "^1.0.0"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"
@@ -45,7 +56,13 @@
     "claude",
     "claude-code",
     "pty",
-    "code-inspector"
+    "code-inspector",
+    "ai",
+    "copilot",
+    "developer-tools"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

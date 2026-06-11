@@ -122,7 +122,8 @@ export function startSidecar(projectRoot: string, options?: SidecarOptions): Ser
       const session = await manager.create(cwd);
       res.json(session.getInfo());
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      console.error('[cc-prompter] Failed to create session:', err);
+      res.status(500).json({ error: err.message, stack: err.stack });
     }
   });
 

@@ -28,17 +28,69 @@ import type {
   SseEvent,
 } from './types.js';
 
-// node-pty-prebuilt-multiarch uses CJS internally — must use require()
-function loadPty(): typeof import('node-pty-prebuilt-multiarch') {
-  return require('node-pty-prebuilt-multiarch');
+// Try multiple PTY packages for cross-platform compatibility
+const PTY_PACKAGES = [
+  'node-pty-prebuilt-multiarch',         // macOS / Linux prebuilt
+  '@homebridge/node-pty-prebuilt-multiarch', // Better Windows support
+  'node-pty',                             // Original (needs build tools)
+];
+
+let _ptyModule: any = null;
+function loadPty(): any {
+  if (_ptyModule) return _ptyModule;
+  const errors: string[] = [];
+  for (const pkg of PTY_PACKAGES) {
+    try {
+      const mod = require(pkg);
+      // Verify native binary actually exists — require() can succeed without it
+      const modDir = path.dirname(require.resolve(pkg + '/package.json'));
+      const buildDir = path.join(modDir, 'build', 'Release');
+      if (!fs.existsSync(buildDir) || fs.readdirSync(buildDir).filter(f => f.endsWith('.node')).length === 0) {
+        errors.push(`${pkg}: no native binary in ${buildDir}`);
+        continue;
+      }
+      console.log(`[cc-prompter] Loaded PTY from: ${pkg}`);
+      _ptyModule = mod;
+      return _ptyModule;
+    } catch (err: any) {
+      errors.push(`${pkg}: ${err.message}`);
+    }
+  }
+  throw new Error(
+    `No PTY module available. Tried:\n${errors.map(e => '  ' + e).join('\n')}\n` +
+    `Install one: npm install node-pty-prebuilt-multiarch (macOS/Linux) or @homebridge/node-pty-prebuilt-multiarch (Windows)`
+  );
 }
 
 // ── Helpers ─────────────────────────────────────────────
 
-function resolveClaudeBin(cwd: string): string {
-  const local = path.resolve(cwd, 'node_modules/@anthropic-ai/claude-code/bin/claude.exe');
-  if (fs.existsSync(local)) return local;
-  return 'claude';
+function resolveClaudeBin(cwd: string): { file: string; args: string[] } {
+  // Windows: find node.exe + claude.js directly (bypass broken .cmd wrapper)
+  if (process.platform === 'win32') {
+    // Check local install first
+    const localJs = path.resolve(cwd, 'node_modules/@anthropic-ai/claude-code/bin/claude.js');
+    if (fs.existsSync(localJs)) {
+      return { file: process.execPath, args: [localJs] };
+    }
+    // Check global npm install (nvm4w puts global modules next to node.exe)
+    const globalPrefix = path.dirname(process.execPath);
+    const globalJs = path.join(globalPrefix, 'node_modules/@anthropic-ai/claude-code/bin/claude.js');
+    if (fs.existsSync(globalJs)) {
+      return { file: process.execPath, args: [globalJs] };
+    }
+    // Check npm global prefix via APPDATA (standard npm location)
+    const appDataJs = path.join(process.env.APPDATA || '', 'npm/node_modules/@anthropic-ai/claude-code/bin/claude.js');
+    if (fs.existsSync(appDataJs)) {
+      return { file: process.execPath, args: [appDataJs] };
+    }
+    // Fallback: try cmd.exe
+    return { file: process.env.COMSPEC || 'cmd.exe', args: ['/c', 'claude'] };
+  }
+
+  // macOS/Linux
+  const local = path.resolve(cwd, 'node_modules/@anthropic-ai/claude-code/bin/claude');
+  if (fs.existsSync(local)) return { file: local, args: [] };
+  return { file: 'claude', args: [] };
 }
 
 function findClaudeProjectsDir(): string {
@@ -47,32 +99,56 @@ function findClaudeProjectsDir(): string {
 
 /** Convert a cwd path to the Claude projects directory name */
 function cwdToProjectDir(cwd: string): string {
-  // /Users/ryan/mycode/AgentPlat/demo → -Users-ryan-mycode-AgentPlat-demo
-  return '-' + cwd.replace(/^\//, '').replace(/\//g, '-');
+  // Normalize path separators and handle both Unix and Windows paths
+  // D:/code/agentplat → -D--code-agentplat
+  // /Users/ryan/demo → -Users-ryan-demo
+  const normalized = cwd.replace(/\\/g, '/').replace(/^[A-Za-z]:/, m => '-' + m[0].toLowerCase());
+  return normalized.replace(/^\//, '').replace(/\/+/g, '-').replace(/^-+/, '');
 }
 
-/** Scan for the most recently modified .jsonl in a specific project dir */
+/** Scan for the most recently modified .jsonl in project dirs */
 function findRecentJsonl(cwd: string, afterMs: number): string | null {
   const projectsDir = findClaudeProjectsDir();
+  if (!fs.existsSync(projectsDir)) return null;
+
+  // Collect candidate JSONL files from target dir and all subdirectories
+  const candidates: { path: string; mtime: number }[] = [];
+
+  const collectFromDir = (dir: string) => {
+    try {
+      const files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl'));
+      for (const f of files) {
+        const fp = path.join(dir, f);
+        try {
+          const stat = fs.statSync(fp);
+          if (stat.mtimeMs > afterMs) {
+            candidates.push({ path: fp, mtime: stat.mtimeMs });
+          }
+        } catch { /* skip */ }
+      }
+    } catch { /* dir might not exist */ }
+  };
+
+  // Try exact match first
   const projectSubdir = cwdToProjectDir(cwd);
   const targetDir = path.join(projectsDir, projectSubdir);
+  collectFromDir(targetDir);
 
-  if (!fs.existsSync(targetDir)) return null;
-
-  const files = fs.readdirSync(targetDir).filter(f => f.endsWith('.jsonl'));
-  let best: { path: string; mtime: number } | null = null;
-  for (const f of files) {
-    const fp = path.join(targetDir, f);
+  // Fallback: scan ALL project subdirectories (handles Windows path format differences)
+  if (candidates.length === 0) {
     try {
-      const stat = fs.statSync(fp);
-      if (stat.mtimeMs > afterMs) {
-        if (!best || stat.mtimeMs > best.mtime) {
-          best = { path: fp, mtime: stat.mtimeMs };
+      const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name !== projectSubdir) {
+          collectFromDir(path.join(projectsDir, entry.name));
         }
       }
-    } catch { continue; }
+    } catch { /* ignore */ }
   }
-  return best?.path || null;
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.mtime - a.mtime);
+  return candidates[0].path;
 }
 
 function sessionIdFromJsonlPath(jsonPath: string): string | null {
@@ -85,9 +161,22 @@ function sessionIdFromJsonlPath(jsonPath: string): string | null {
 function stripAnsi(s: string): string {
   return s
     .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
-    .replace(/\x1b\].*?\x07/g, '')
+    .replace(/\x1b\].*?(?:\x07|\x1b\\)/g, '')
     .replace(/\x1b\[[\?]?[0-9;]*[a-zA-Z]/g, '')
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+    .replace(/\x1b[^[\]()]?.?/g, '')
     .replace(/\r/g, '');
+}
+
+/** Strip Claude TUI spinner noise from PTY output */
+function stripSpinner(s: string): string {
+  return s
+    .replace(/[✻✶✽✢·●✳◇◆▸▹⏵⏶]+/g, '')
+    .replace(/\w{3,}ing[…\s]*\(\d{1,3}s?\)?/g, '')  // "Gesticulating… (28s)"
+    .replace(/\w{3,}ing…/g, '')                       // "Topsy-turvying…"
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // ── PtySession ──────────────────────────────────────────
@@ -105,6 +194,7 @@ export class PtySession extends EventEmitter {
   private jsonlWatcher: fs.FSWatcher | null = null;
   private spawnTime: number;
   private messageSentAt = 0;
+  private busySince = 0;          // timestamp when last message was sent (for grace period)
   private title = 'New Session';
   private lastActivityAt: number;
   private killed = false;
@@ -120,6 +210,9 @@ export class PtySession extends EventEmitter {
   private ptyDoneEmitted = false;
   private lastProgress = '';      // last emitted progress text
   private interrupted = false;    // set when user sends interrupt
+  private lastSpinnerSec = 0;     // highest spinner seconds counter seen
+  private lastSpinnerAt = 0;      // timestamp when spinner was last active
+  private emittedTools = new Set<string>();  // dedup tool call emissions
 
   constructor(id: string, cwd: string) {
     super();
@@ -132,11 +225,11 @@ export class PtySession extends EventEmitter {
   /** Spawn the claude process via PTY */
   async spawn(): Promise<void> {
     const ptyModule = loadPty();
-    const bin = resolveClaudeBin(this.cwd);
+    const { file, args } = resolveClaudeBin(this.cwd);
 
-    console.log(`[pty-session ${this.id}] spawning: ${bin} cwd: ${this.cwd}`);
+    console.log(`[pty-session ${this.id}] spawning: ${file} ${args.join(' ')} cwd: ${this.cwd}`);
 
-    this.pty = ptyModule.spawn(bin, [], {
+    this.pty = ptyModule.spawn(file, args, {
       name: 'xterm-256color',
       cols: 120,
       rows: 30,
@@ -148,6 +241,10 @@ export class PtySession extends EventEmitter {
 
     // Watch PTY output
     this.pty.onData((data: string) => {
+      // Debug: log first 500 chars of output to diagnose spawn failures
+      if (this.status === 'spawning') {
+        console.log(`[pty-session ${this.id}] output: ${JSON.stringify(data.substring(0, 500))}`);
+      }
       const clean = stripAnsi(data);
       this.ptyBuffer += clean;
 
@@ -244,9 +341,11 @@ export class PtySession extends EventEmitter {
 
     this.status = 'busy';
     this.lastActivityAt = Date.now();
+    this.busySince = Date.now();
 
     // Reset streaming state for this turn
     this.busyBuffer = '';
+    this.ptyBuffer = '';  // Clear accumulated prompt text to avoid false done detection
     this.lastUserContent = content;
     this.ptyResponseText = '';
     this.ptyResponseEmitted = 0;
@@ -254,6 +353,9 @@ export class PtySession extends EventEmitter {
     this.ptyDoneEmitted = false;
     this.lastProgress = '';
     this.interrupted = false;
+    this.lastSpinnerSec = 0;
+    this.lastSpinnerAt = 0;
+    this.emittedTools.clear();
 
     // JSONL discovery in background
     if (!this.messageSentAt) {
@@ -328,17 +430,35 @@ export class PtySession extends EventEmitter {
    *   - Timing:         (Xs · ↓NNN tokens)
    */
   private parseBusyOutput(): void {
-    // ── 0. Extract progress for UI feedback ──
+    // ── 0. Sliding window — prevent unbounded buffer growth from spinner frames ──
+    // Windows ConPTY sends character-by-character spinner updates, causing massive buffers.
+    // Keep only the last 2000 chars so completion markers and recent tool calls stay visible.
+    if (this.busyBuffer.length > 3000) {
+      this.busyBuffer = this.busyBuffer.slice(-2000);
+    }
+
+    // ── 1. Extract progress for UI feedback ──
     this.emitProgress();
 
-    // ── 1. Try to extract response text ──
+    // ── 2. Track spinner activity (detect Claude still working) ──
+    // Extract seconds counter from spinner text: "Gesticulating… (28s)", "Seasoning… (21s)"
+    // On Windows, these verbs are random (Gesticulating, Seasoning, Topsy-turvying, etc.)
+    const secMatches = [...this.busyBuffer.matchAll(/\w{3,}ing[…\s]*\((\d{1,3})s?/g)];
+    for (const m of secMatches) {
+      const sec = parseInt(m[1]);
+      if (sec > this.lastSpinnerSec) {
+        this.lastSpinnerSec = sec;
+        this.lastSpinnerAt = Date.now();
+      }
+    }
+
+    // ── 3. Try to extract response text ──
     const respMatch = this.busyBuffer.match(/⏺([一-鿿　-〿＀-￯].+)/s);
     if (respMatch) {
       let raw = respMatch[1];
       raw = raw.replace(/[✳✶✻✽✢·].*$/s, '').trim();
       raw = raw.replace(/─{3,}.*$/s, '').trim();
-      raw = raw.replace(/Brewed for.*$/s, '').trim();
-      raw = raw.replace(/Sautéed for.*$/s, '').trim();
+      raw = raw.replace(/\w{3,}ed (?:for|in) \d{1,4}s?.*$/s, '').trim();
       raw = raw.replace(/esctointerrupt.*$/s, '').trim();
 
       if (raw.length > this.ptyResponseText.length) {
@@ -347,19 +467,53 @@ export class PtySession extends EventEmitter {
       }
     }
 
-    // ── 2. Extract tool calls (Update/Read/Edit) ──
+    // ── 4. Extract tool calls (with dedup to prevent infinite re-emission) ──
+    // macOS format: ⏺ Read(file) | Windows format: ● Reading 1 file… ⎿ file
     const toolCallMatch = this.busyBuffer.match(/⏺(Update|Read|Edit|Write|Bash)\(([^)]+)\)/);
     if (toolCallMatch) {
-      const toolName = toolCallMatch[1];
-      const filePath = toolCallMatch[2];
-      this.emit('message', {
-        type: 'assistant_tool',
-        tool: { name: toolName, input: { file: filePath } },
-      } as SseEvent);
+      const sig = `${toolCallMatch[1]}:${toolCallMatch[2]}`;
+      if (!this.emittedTools.has(sig)) {
+        this.emittedTools.add(sig);
+        this.emit('message', {
+          type: 'assistant_tool',
+          tool: { name: toolCallMatch[1], input: { file: toolCallMatch[2] } },
+        } as SseEvent);
+      }
+    }
+    // Windows format: "● Reading 1 file…\n  ⎿  src\\components\\Foo.tsx"
+    const winToolMatch = this.busyBuffer.match(/● (Reading|Editing|Writing|Searching|Bashing)[^\n]*\n\s*⎿\s*(.+)/);
+    if (!toolCallMatch && winToolMatch) {
+      const filePath = winToolMatch[2].trim();
+      const sig = `${winToolMatch[1]}:${filePath}`;
+      if (!this.emittedTools.has(sig)) {
+        this.emittedTools.add(sig);
+        this.emit('message', {
+          type: 'assistant_tool',
+          tool: { name: winToolMatch[1], input: { file: filePath } },
+        } as SseEvent);
+      }
     }
 
-    // ── 3. Detect completion ──
-    if (!this.ptyDoneEmitted && /(?:Brewed|Sautéed) for/.test(this.busyBuffer)) {
+    // ── 5. Detect completion ──
+    if (this.ptyDoneEmitted) return;
+
+    // 5a. Explicit completion marker: "Brewed for Xs", "Sautéed for Xs", etc.
+    //     Use broad pattern since Claude uses random creative verbs.
+    const cleanBuf = stripSpinner(this.busyBuffer);
+    const hasDoneMarker = /\b\w+ed (?:for|in) \d{1,4}s?\b/i.test(cleanBuf);
+
+    // 5b. Spinner timeout: spinner was active, then stopped for 10+ seconds.
+    //     On Windows ConPTY, Claude's TUI sends spinner frames continuously while working.
+    //     If spinner stops, Claude has finished (or errored out).
+    const spinnerTimeout = this.lastSpinnerAt > 0
+      && Date.now() - this.lastSpinnerAt > 10000
+      && this.ptyResponseEmitted > 0;
+
+    if (hasDoneMarker || spinnerTimeout) {
+      const reason = hasDoneMarker
+        ? 'completion marker'
+        : `spinner timeout (${Math.round((Date.now() - this.lastSpinnerAt) / 1000)}s since last activity)`;
+      console.log(`[pty-session ${this.id}] detected done via ${reason}`);
       this.ptyDoneEmitted = true;
 
       // Final flush: emit any remaining text
@@ -374,7 +528,7 @@ export class PtySession extends EventEmitter {
           let text = finalMatch[1]
             .replace(/[✳✶✻✽✢·].*$/s, '')
             .replace(/─{3,}.*$/s, '')
-            .replace(/Brewed for.*$/s, '')
+            .replace(/\w{3,}ed (?:for|in) \d{1,4}s?.*$/s, '')
             .replace(/esctointerrupt.*$/s, '')
             .trim();
           if (text.length > 0) {
@@ -389,7 +543,7 @@ export class PtySession extends EventEmitter {
       }
 
       // Extract duration
-      const durMatch = this.busyBuffer.match(/Brewed for (\d+)s/);
+      const durMatch = cleanBuf.match(/\w+ed (?:for|in) (\d{1,4})s?/i);
       const durationMs = durMatch ? parseInt(durMatch[1]) * 1000 : 0;
 
       // Update title from first user message
@@ -498,6 +652,9 @@ export class PtySession extends EventEmitter {
 
   private async discoverJsonl(): Promise<void> {
     const searchStart = this.messageSentAt - 2000;
+    const projectsDir = findClaudeProjectsDir();
+    const expectedSubdir = cwdToProjectDir(this.cwd);
+    console.log(`[pty-session ${this.id}] JSONL discovery: projectsDir=${projectsDir}, expected=${expectedSubdir}, cwd=${this.cwd}`);
 
     // Poll for up to 60 seconds (120 × 500ms)
     for (let i = 0; i < 120; i++) {
@@ -509,6 +666,19 @@ export class PtySession extends EventEmitter {
         console.log(`[pty-session ${this.id}] found JSONL: ${jsonl} (session: ${this.sessionId})`);
         this.startTailingJsonl();
         return;
+      }
+      // Log available dirs after 5s for debugging
+      if (i === 10) {
+        try {
+          if (fs.existsSync(projectsDir)) {
+            const dirs = fs.readdirSync(projectsDir, { withFileTypes: true })
+              .filter(d => d.isDirectory())
+              .map(d => d.name);
+            console.log(`[pty-session ${this.id}] JSONL not found in expected dir. Available project dirs: ${dirs.join(', ')}`);
+          } else {
+            console.log(`[pty-session ${this.id}] projectsDir does not exist: ${projectsDir}`);
+          }
+        } catch { /* ignore */ }
       }
       await new Promise(r => setTimeout(r, 500));
     }

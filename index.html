@@ -80,6 +80,7 @@
   .panel.tip{border-left:3px solid var(--cyan);}
   .panel.warn{border-left:3px solid var(--yellow);}
   .panel.win{border-left:3px solid var(--green);}
+  .panel.ok{border-left:3px solid var(--green);}
   .panel .tag{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:8px;}
 
   /* ---------- code block ---------- */
@@ -220,13 +221,45 @@
 <!-- ═══ 01 Install ═══ -->
 <section id="install">
   <h2><span class="num">01</span>安装与配置</h2>
-  <p class="lead">三步完成：安装依赖 → 添加插件 → 启动开发服务器。</p>
+  <p class="lead">macOS / Linux 开箱即用。Windows 需要额外安装 PTY 原生模块。</p>
 
+  <h3>macOS / Linux</h3>
   <div class="code">
     <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> terminal</div>
     <pre><span class="f">npm</span> install cc-prompter</pre>
   </div>
+  <div class="panel ok" style="border-left:3px solid var(--green);">
+    <span class="tag">macOS / linux</span>
+    <p>开箱即用 ✅ PTY 模块（<code>node-pty-prebuilt-multiarch</code>）自动安装，无需额外操作。</p>
+  </div>
 
+  <h3>Windows</h3>
+  <div class="code">
+    <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> terminal — 步骤 1/3</div>
+    <pre><span class="f">npm</span> install cc-prompter
+<span class="c"># 然后：</span>
+<span class="k">cd</span> node_modules/cc-prompter
+<span class="f">npm</span> install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts</pre>
+  </div>
+  <div class="code">
+    <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> 步骤 2/3 — 下载 Windows 原生二进制</div>
+    <pre><span class="c"># 从 GitHub Releases 下载 win32-x64 的 prebuild 压缩包：</span>
+<span class="c"># https://github.com/nicabar/node-pty-prebuilt-multiarch/releases</span>
+<span class="c">#</span>
+<span class="c"># 如果 GitHub 下载超时（国内网络），使用镜像：</span>
+<span class="c"># https://ghfast.top/https://github.com/nicabar/node-pty-prebuilt-multiarch/releases/download/...</span></pre>
+  </div>
+  <div class="code">
+    <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> 步骤 3/3 — 解压到正确位置</div>
+    <pre><span class="c"># 将下载的压缩包解压，把 .node 文件放到：</span>
+<span class="c"># node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/</span></pre>
+  </div>
+  <div class="panel warn">
+    <span class="tag">WINDOWS</span>
+    <p>Node 18 / 20 / 22 均支持。PTY 包的 npm 预编译不含 Windows 平台，需要从 GitHub Releases 手动获取二进制文件。<strong>如果 GitHub 不可访问</strong>，可用 <code>ghfast.top</code> 等镜像加速下载。</p>
+  </div>
+
+  <h3>Vite 配置</h3>
   <div class="code">
     <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> vite.config.ts</div>
     <pre><span class="c">// 就这一行插件配置，搞定 code-inspector + PTY sidecar + 脚本注入</span>
@@ -249,8 +282,8 @@
   <h3>一键安装提示（给 Claude Code 用）</h3>
   <div class="prompt-box">
     <h3>🎯 复制以下提示词 → 粘贴给 Claude Code</h3>
-    <p>在你的前端项目中，让 Claude Code 自动完成安装和配置：</p>
-    <div class="one-line">帮我安装 cc-prompter 并在 vite.config.ts 中添加 ccPromptPlugin() 插件配置，这是一个 Vite 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能</div>
+    <p>在你的前端项目中，让 Claude Code 自动完成安装和配置（包含 Mac 和 Windows 的完整步骤）：</p>
+    <div class="one-line">帮我安装 cc-prompter 并在 vite.config.ts 中添加 ccPromptPlugin() 插件配置，这是一个 Vite 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能。安装方法：macOS / Linux 直接 npm install cc-prompter 即可。Windows 需要：1) npm install cc-prompter 后 cd node_modules/cc-prompter，2) npm install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts，3) 从 https://github.com/nicabar/node-pty-prebuilt-multiarch/releases 下载 win32-x64 prebuild 压缩包，4) 解压到 node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/。GitHub 超时可用 ghfast.top 镜像。配置方法：在 vite.config.ts 的 plugins 数组中添加 ccPromptPlugin()，示例：import { ccPromptPlugin } from 'cc-prompter'; plugins: [ccPromptPlugin(), react()]</div>
   </div>
 
   <div class="panel win">

@@ -10,9 +10,37 @@
 
 ### 安装
 
+#### macOS / Linux
+
 ```bash
 npm install cc-prompter
 ```
+
+macOS 和 Linux **开箱即用**，PTY 模块（`node-pty-prebuilt-multiarch`）会自动安装。
+
+#### Windows
+
+Windows 需要额外安装 PTY 原生模块（npm 上的 PTY 包不含 Windows 预编译）：
+
+```bash
+# 1. 安装 cc-prompter
+npm install cc-prompter
+
+# 2. 安装 PTY 模块（跳过自动编译，只装 JS 部分）
+cd node_modules/cc-prompter
+npm install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts
+
+# 3. 下载 Windows 原生二进制
+#    从 GitHub Releases 下载对应版本：
+#    https://github.com/nicabar/node-pty-prebuilt-multiarch/releases
+#    找到 win32-x64 的 prebuild .tar.gz 文件，下载并解压到：
+#    node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/
+```
+
+> **如果 GitHub 下载超时**（国内网络），可以：
+> - 使用 GitHub 镜像下载：`https://ghfast.top/https://github.com/nicabar/node-pty-prebuilt-multiarch/releases/download/...`
+> - 或者在有网络的环境下载后拷贝过去
+> - Node 18 / 20 / 22 均支持
 
 > 前提：本地需要已安装 [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)（终端执行 `claude` 命令可用）。插件仅在 dev 模式生效，`npm run build` 不会注入任何代码。
 
@@ -43,7 +71,18 @@ export default defineConfig({
 复制下面这行，粘贴给 Claude Code，它会自动帮你完成安装和配置：
 
 ```
-帮我安装 cc-prompter 并在 vite.config.ts 中添加 ccPromptPlugin() 插件配置，这是一个 Vite 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能
+帮我安装 cc-prompter 并在 vite.config.ts 中添加 ccPromptPlugin() 插件配置，这是一个 Vite 插件，用于集成 Claude Code CLI 和 code-inspector 元素定位功能。安装方法：
+- macOS / Linux: 直接 npm install cc-prompter 即可
+- Windows: npm install cc-prompter 后，还需要安装 PTY 原生模块：
+  1. cd node_modules/cc-prompter
+  2. npm install @homebridge/node-pty-prebuilt-multiarch --ignore-scripts
+  3. 从 https://github.com/nicabar/node-pty-prebuilt-multiarch/releases 下载 win32-x64 的 prebuild 压缩包
+  4. 解压到 node_modules/@homebridge/node-pty-prebuilt-multiarch/build/Release/
+如果 GitHub 下载超时，使用 ghfast.top 镜像。
+
+配置方法：在 vite.config.ts 的 plugins 数组中添加 ccPromptPlugin()，示例：
+import { ccPromptPlugin } from 'cc-prompter';
+plugins: [ccPromptPlugin(), react()]
 ```
 
 ## 怎么用
