@@ -1,8 +1,16 @@
 # CC Prompter
 
-**Shift+Alt 点击页面元素 → Claude Code 直接改代码 → 页面自动刷新**
+**哪里不对点哪里，So easy！**
 
 一个 Vite 插件，将 [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) 接入你的前端开发工作流。通过可视化元素定位 + 常驻 PTY 会话，实现「点击 → 描述 → 代码自动修改 → HMR 刷新」的闭环。
+
+> 🎯 **精确定位修改点** — 不再需要费劲描述「左上角那个蓝色按钮」或者截图了，直接点击页面元素，源码路径、行列号自动带上。
+>
+> 💰 **节省 tokens 神器** — 不需要让 Claude 反复探索项目结构、搜索文件、猜测位置，一个点击搞定所有上下文。
+>
+> ⚡ **所见即所得** — 改完自动 HMR 刷新，边看边改，开发体验拉满。
+
+**Shift+Alt 点击页面元素 → Claude Code 直接改代码 → 页面自动刷新**
 
 ![CC Prompter Demo](./demo.png)
 
