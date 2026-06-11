@@ -1,46 +1,73 @@
 /**
  * CC Prompter — Next.js Plugin
  *
- * 为 Next.js dev server 提供集成。内部复用 CcPromptWebpackPlugin。
+ * 为 Next.js dev server 提供集成。直接操作 webpack config（不通过 plugin.apply，
+ * 因为 Next.js webpack 配置阶段没有 compiler 对象）。
  *
  * 用法：
  *   const { withCcPrompt } = require('cc-prompter/next');
  *   module.exports = withCcPrompt()({ /* next config *\/ });
  */
 
-import { CcPromptWebpackPlugin } from './webpack-plugin.js';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { codeInspectorPlugin } from 'code-inspector-plugin';
+import { startSidecar } from './sidecar.js';
+import { getInjectScript } from './assets.js';
 
-export type { CcPromptWebpackOptions as CcPromptNextOptions } from './webpack-plugin.js';
+const _dirname = typeof __dirname !== 'undefined'
+  ? __dirname
+  : dirname(fileURLToPath(import.meta.url));
+
+export interface CcPromptNextOptions {
+  /** Sidecar 启动端口，默认 3456（被占用时自动 +1） */
+  port?: number;
+  /** 项目根目录，默认 process.cwd() */
+  root?: string;
+  /** 是否启用 code-inspector，默认 true */
+  inspector?: boolean;
+}
+
+// Sidecar singleton — prevent duplicate starts across hot reloads
+declare global {
+  // eslint-disable-next-line no-var
+  var __ccPrompterSidecarStarted: boolean | undefined;
+}
 
 /**
  * Next.js plugin wrapper for cc-prompter.
  *
- * Creates a webpack plugin instance per call, and applies it
- * inside Next.js's webpack config hook (dev + client-side only).
+ * Directly manipulates webpack config object (adds plugins to config.plugins,
+ * modifies config.entry) instead of using plugin.apply() — because Next.js's
+ * webpack() config function receives the config object, not the compiler.
  *
  * Usage:
  *   module.exports = withCcPrompt({ port: 3456 })({ ...nextConfig });
  */
-export function withCcPrompt(options?: import('./webpack-plugin.js').CcPromptWebpackOptions) {
+export function withCcPrompt(options?: CcPromptNextOptions) {
+  const startPort = options?.port || 3456;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function(nextConfig: any = {}) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return Object.assign({}, nextConfig, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       webpack(config: any, context: any) {
         // Only inject in dev mode, client-side bundles
         if (context.dev && !context.isServer) {
-          const plugin = new CcPromptWebpackPlugin({
-            ...options,
-            dev: true,
-          });
-          plugin.apply(config._compiler || { options: config, hooks: {} });
+          const projectRoot = options?.root || process.cwd();
 
-          // Fallback: directly manipulate config if apply() couldn't access compiler
-          // (Next.js passes the webpack config, not the compiler instance)
-          const startPort = options?.port || 3456;
+          // ── 1. Start sidecar server (once, doesn't need webpack compiler) ──
+          if (!globalThis.__ccPrompterSidecarStarted) {
+            globalThis.__ccPrompterSidecarStarted = true;
+            startSidecar(projectRoot, { startPort });
+          }
+
+          config.plugins = config.plugins || [];
           const webpack = require('webpack');
 
+          // ── 2. Add code-inspector-plugin (webpack bundler) ──
           if (options?.inspector !== false) {
-            const { codeInspectorPlugin } = require('code-inspector-plugin');
-            config.plugins = config.plugins || [];
             config.plugins.push(codeInspectorPlugin({
               bundler: 'webpack',
               behavior: { locate: false, copy: false },
@@ -49,19 +76,19 @@ export function withCcPrompt(options?: import('./webpack-plugin.js').CcPromptWeb
             }));
           }
 
-          const { getInjectScript } = require('./assets.js');
+          // ── 3. Inject client script via DefinePlugin ──
+          const injectScript = getInjectScript();
           config.plugins.push(new webpack.DefinePlugin({
-            '__CC_PROMPTER_INJECT_SCRIPT__': JSON.stringify(getInjectScript()),
+            '__CC_PROMPTER_INJECT_SCRIPT__': JSON.stringify(injectScript),
             '__CC_PROMPTER_PORT__': JSON.stringify(startPort),
           }));
 
-          // Prepend client-entry to entries
-          const { join, dirname } = require('path');
-          const _dirname = typeof __dirname !== 'undefined' ? __dirname : dirname(require('url').fileURLToPath(import.meta.url));
+          // ── 4. Prepend client-entry.js to all client entries ──
           const clientEntryPath = join(_dirname, 'client-entry.js');
           const originalEntry = config.entry;
           config.entry = async () => {
-            const entries = typeof originalEntry === 'function'
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const entries: Record<string, any> = typeof originalEntry === 'function'
               ? await originalEntry()
               : originalEntry;
             for (const key in entries) {
